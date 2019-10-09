@@ -1,6 +1,7 @@
 package com.yunus.net.netty;
 
 import com.yunus.net.base.BaseClient;
+import com.yunus.net.base.ConnectClient;
 import com.yunus.net.base.RpcRequest;
 
 /**
