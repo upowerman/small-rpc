@@ -7,7 +7,7 @@ import com.yunus.net.base.RpcRequest;
  * @author gaoyunfeng
  */
 public class NettyClient extends BaseClient {
-    
+
 
     private Class<? extends ConnectClient> connectClientImpl = NettyConnectClient.class;
 
