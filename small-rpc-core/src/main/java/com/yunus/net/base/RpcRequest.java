@@ -4,6 +4,8 @@ import java.io.Serializable;
 import java.util.Arrays;
 
 /**
+ * request 封装
+ *
  * @author gaoyunfeng
  */
 public class RpcRequest implements Serializable {
@@ -86,7 +88,7 @@ public class RpcRequest implements Serializable {
 
     @Override
     public String toString() {
-        return "XxlRpcRequest{" +
+        return "RpcRequest{" +
                 "requestId='" + requestId + '\'' +
                 ", createMillisTime=" + createMillisTime +
                 ", accessToken='" + accessToken + '\'' +

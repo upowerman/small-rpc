@@ -12,22 +12,51 @@ import java.util.concurrent.ConcurrentMap;
 public abstract class ConnectClient {
     protected static transient Logger logger = LoggerFactory.getLogger(ConnectClient.class);
 
+    /**
+     * 初始化方法
+     *
+     * @param address           地址
+     * @param serializer        序列化方式
+     * @param rpcInvokerFactory 工厂类
+     * @throws Exception
+     */
+    public abstract void init(String address, final BaseSerializer serializer, final RpcInvokerFactory rpcInvokerFactory) throws Exception;
 
-    public abstract void init(String address, final BaseSerializer serializer, final RpcInvokerFactory RpcInvokerFactory) throws Exception;
-
+    /**
+     * 关闭方法
+     */
     public abstract void close();
 
+    /**
+     * 验证方法
+     *
+     * @return
+     */
     public abstract boolean isValidate();
 
+    /**
+     * 调用方法
+     *
+     * @param request 请求wrap
+     * @throws Exception
+     */
     public abstract void send(RpcRequest request) throws Exception;
 
-
+    /**
+     * 异步发送
+     *
+     * @param rpcRequest
+     * @param address
+     * @param connectClientImpl
+     * @param rpcReferenceBean
+     * @throws Exception
+     */
     public static void asyncSend(RpcRequest rpcRequest, String address,
                                  Class<? extends ConnectClient> connectClientImpl,
-                                 final RpcReferenceBean RpcReferenceBean) throws Exception {
+                                 final RpcReferenceBean rpcReferenceBean) throws Exception {
 
         // client pool	[tips03 : may save 35ms/100invoke if move it to constructor, but it is necessary. cause by ConcurrentHashMap.get]
-        ConnectClient clientPool = ConnectClient.getPool(address, connectClientImpl, RpcReferenceBean);
+        ConnectClient clientPool = ConnectClient.getPool(address, connectClientImpl, rpcReferenceBean);
 
         try {
             // do invoke
@@ -50,7 +79,7 @@ public abstract class ConnectClient {
                     // init
                     connectClientMap = new ConcurrentHashMap<String, ConnectClient>();
                     // stop callback
-                    rpcReferenceBean.getInvokerFactory().addStopCallBack(new BaseCallback() {
+                    RpcReferenceBean.getInvokerFactory().addStopCallBack(new BaseCallback() {
                         @Override
                         public void run() throws Exception {
                             if (connectClientMap.size() > 0) {
