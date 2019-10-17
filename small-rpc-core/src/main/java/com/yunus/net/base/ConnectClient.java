@@ -9,6 +9,9 @@ import org.slf4j.LoggerFactory;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+/**
+ * @author gaoyunfeng
+ */
 public abstract class ConnectClient {
     protected static transient Logger logger = LoggerFactory.getLogger(ConnectClient.class);
 
@@ -55,11 +58,9 @@ public abstract class ConnectClient {
                                  Class<? extends ConnectClient> connectClientImpl,
                                  final RpcReferenceBean rpcReferenceBean) throws Exception {
 
-        // client pool	[tips03 : may save 35ms/100invoke if move it to constructor, but it is necessary. cause by ConcurrentHashMap.get]
         ConnectClient clientPool = ConnectClient.getPool(address, connectClientImpl, rpcReferenceBean);
 
         try {
-            // do invoke
             clientPool.send(rpcRequest);
         } catch (Exception e) {
             throw e;
@@ -76,10 +77,8 @@ public abstract class ConnectClient {
         if (connectClientMap == null) {
             synchronized (ConnectClient.class) {
                 if (connectClientMap == null) {
-                    // init
                     connectClientMap = new ConcurrentHashMap<String, ConnectClient>();
-                    // stop callback
-                    RpcReferenceBean.getInvokerFactory().addStopCallBack(new BaseCallback() {
+                    rpcReferenceBean.getInvokerFactory().addStopCallBack(new BaseCallback() {
                         @Override
                         public void run() throws Exception {
                             if (connectClientMap.size() > 0) {
@@ -124,7 +123,7 @@ public abstract class ConnectClient {
             // set pool
             ConnectClient connectClient_new = connectClientImpl.newInstance();
             try {
-                connectClient_new.init(address, RpcReferenceBean.getSerializer(), RpcReferenceBean.getInvokerFactory());
+                connectClient_new.init(address, rpcReferenceBean.getSerializer(), rpcReferenceBean.getInvokerFactory());
                 connectClientMap.put(address, connectClient_new);
             } catch (Exception e) {
                 connectClient_new.close();
