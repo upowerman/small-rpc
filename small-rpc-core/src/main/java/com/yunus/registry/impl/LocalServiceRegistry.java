@@ -8,6 +8,8 @@ import java.util.Set;
 import java.util.TreeSet;
 
 /**
+ * 本地直连方式
+ *
  * @author gaoyunfeng
  */
 public class LocalServiceRegistry extends BaseServiceRegistry {

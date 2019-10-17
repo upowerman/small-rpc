@@ -20,7 +20,13 @@ import java.util.Map;
 public class RpcProviderFactory {
     private static final Logger logger = LoggerFactory.getLogger(RpcProviderFactory.class);
 
+    /**
+     * 网络类型
+     */
     private NetEnum netType;
+    /**
+     * 序列化方式
+     */
     private BaseSerializer serializer;
 
     private int corePoolSize;
@@ -30,8 +36,23 @@ public class RpcProviderFactory {
     private int port;
     private String accessToken;
 
+    /**
+     * 对应的注册方式 本地  zk  等其他注册中心
+     */
     private Class<? extends BaseServiceRegistry> serviceRegistryClass;
     private Map<String, String> serviceRegistryParam;
+
+    /**
+     * init local rpc service map
+     */
+    private Map<String, Object> serviceData = new HashMap<String, Object>();
+
+    /**
+     * 目前只提供netty 方式
+     */
+    private BaseServer server;
+    private BaseServiceRegistry serviceRegistry;
+    private String serviceAddress;
 
 
     public RpcProviderFactory() {
@@ -58,7 +79,6 @@ public class RpcProviderFactory {
         this.serviceRegistryClass = serviceRegistryClass;
         this.serviceRegistryParam = serviceRegistryParam;
 
-        // valid
         if (this.netType == null) {
             throw new RpcException("rpc provider netType missing.");
         }
@@ -86,30 +106,11 @@ public class RpcProviderFactory {
 
     }
 
-    public BaseSerializer getSerializer() {
-        return serializer;
-    }
-
-    public int getPort() {
-        return port;
-    }
-
-    public int getCorePoolSize() {
-        return corePoolSize;
-    }
-
-    public int getMaxPoolSize() {
-        return maxPoolSize;
-    }
-
-
-    private BaseServer server;
-    private BaseServiceRegistry serviceRegistry;
-    private String serviceAddress;
 
     public void start() throws Exception {
         serviceAddress = IpUtil.getIpPort(this.ip, port);
         server = netType.serverClass.newInstance();
+        // 设置开始 回调函数
         server.setStartedCallback(new BaseCallback() {
             @Override
             public void run() throws Exception {
@@ -144,15 +145,6 @@ public class RpcProviderFactory {
         server.stop();
     }
 
-
-    /**
-     * init local rpc service map
-     */
-    private Map<String, Object> serviceData = new HashMap<String, Object>();
-
-    public Map<String, Object> getServiceData() {
-        return serviceData;
-    }
 
     /**
      * make service key
@@ -228,5 +220,25 @@ public class RpcProviderFactory {
         }
 
         return rpcResponse;
+    }
+
+    public BaseSerializer getSerializer() {
+        return serializer;
+    }
+
+    public int getPort() {
+        return port;
+    }
+
+    public int getCorePoolSize() {
+        return corePoolSize;
+    }
+
+    public int getMaxPoolSize() {
+        return maxPoolSize;
+    }
+
+    public Map<String, Object> getServiceData() {
+        return serviceData;
     }
 }
