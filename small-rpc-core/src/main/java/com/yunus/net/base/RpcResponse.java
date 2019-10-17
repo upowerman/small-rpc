@@ -3,6 +3,8 @@ package com.yunus.net.base;
 import java.io.Serializable;
 
 /**
+ * response 封装
+ *
  * @author gaoyunfeng
  */
 public class RpcResponse implements Serializable {
@@ -39,7 +41,7 @@ public class RpcResponse implements Serializable {
 
     @Override
     public String toString() {
-        return "XxlRpcResponse{" +
+        return "RpcResponse{" +
                 "requestId='" + requestId + '\'' +
                 ", errorMsg='" + errorMsg + '\'' +
                 ", result=" + result +

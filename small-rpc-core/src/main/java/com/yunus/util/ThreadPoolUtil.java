@@ -24,12 +24,12 @@ public class ThreadPoolUtil {
                 new LinkedBlockingQueue<Runnable>(1000),
                 new ThreadFactory() {
                     public Thread newThread(Runnable r) {
-                        return new Thread(r, "xxl-rpc, " + serverType + "-serverHandlerPool-" + r.hashCode());
+                        return new Thread(r, "rpc, " + serverType + "-serverHandlerPool-" + r.hashCode());
                     }
                 },
                 new RejectedExecutionHandler() {
                     public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
-                        throw new RpcException("xxl-rpc " + serverType + " Thread pool is EXHAUSTED!");
+                        throw new RpcException("rpc " + serverType + " Thread pool is EXHAUSTED!");
                     }
                 });        // default maxThreads 300, minThreads 60
 

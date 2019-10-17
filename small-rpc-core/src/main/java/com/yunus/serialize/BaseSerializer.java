@@ -24,4 +24,6 @@ public abstract class BaseSerializer {
      * @return
      */
     public abstract <T> Object deserialize(byte[] bytes, Class<T> clazz);
+
+
 }

@@ -60,10 +60,10 @@ public class RpcProviderFactory {
 
         // valid
         if (this.netType == null) {
-            throw new RpcException("xxl-rpc provider netType missing.");
+            throw new RpcException("rpc provider netType missing.");
         }
         if (this.serializer == null) {
-            throw new RpcException("xxl-rpc provider serializer missing.");
+            throw new RpcException("rpc provider serializer missing.");
         }
         if (!(this.corePoolSize >= 0 && this.maxPoolSize > 0 && this.maxPoolSize >= this.corePoolSize)) {
             this.corePoolSize = 60;
@@ -76,11 +76,11 @@ public class RpcProviderFactory {
             this.port = 7080;
         }
         if (NetUtil.isPortUsed(this.port)) {
-            throw new RpcException("xxl-rpc provider port[" + this.port + "] is used.");
+            throw new RpcException("rpc provider port[" + this.port + "] is used.");
         }
         if (this.serviceRegistryClass != null) {
             if (this.serviceRegistryParam == null) {
-                throw new RpcException("xxl-rpc provider serviceRegistryParam is missing.");
+                throw new RpcException("rpc provider serviceRegistryParam is missing.");
             }
         }
 
@@ -102,14 +102,12 @@ public class RpcProviderFactory {
         return maxPoolSize;
     }
 
-    // ---------------------- start / stop ----------------------
 
     private BaseServer server;
     private BaseServiceRegistry serviceRegistry;
     private String serviceAddress;
 
     public void start() throws Exception {
-        // start server
         serviceAddress = IpUtil.getIpPort(this.ip, port);
         server = netType.serverClass.newInstance();
         server.setStartedCallback(new BaseCallback() {
@@ -125,7 +123,7 @@ public class RpcProviderFactory {
                 }
             }
         });
-        server.setStopedCallback(new BaseCallback() {        // serviceRegistry stoped
+        server.setStopedCallback(new BaseCallback() {
             @Override
             public void run() {
                 // stop registry
@@ -146,8 +144,6 @@ public class RpcProviderFactory {
         server.stop();
     }
 
-
-    // ---------------------- server invoke ----------------------
 
     /**
      * init local rpc service map
@@ -184,7 +180,7 @@ public class RpcProviderFactory {
         String serviceKey = makeServiceKey(iface, version);
         serviceData.put(serviceKey, serviceBean);
 
-        logger.info(">>>>>>>>>>> xxl-rpc, provider factory add service success. serviceKey = {}, serviceBean = {}", serviceKey, serviceBean.getClass());
+        logger.info(">>>>>>>>>>> rpc, provider factory add service success. serviceKey = {}, serviceBean = {}", serviceKey, serviceBean.getClass());
     }
 
     /**
@@ -195,15 +191,12 @@ public class RpcProviderFactory {
      */
     public RpcResponse invokeService(RpcRequest rpcRequest) {
 
-        //  make response
         RpcResponse rpcResponse = new RpcResponse();
         rpcResponse.setRequestId(rpcRequest.getRequestId());
 
-        // match service bean
         String serviceKey = makeServiceKey(rpcRequest.getClassName(), rpcRequest.getVersion());
         Object serviceBean = serviceData.get(serviceKey);
 
-        // valid
         if (serviceBean == null) {
             rpcResponse.setErrorMsg("The serviceKey[" + serviceKey + "] not found.");
             return rpcResponse;
@@ -219,7 +212,6 @@ public class RpcProviderFactory {
         }
 
         try {
-            // invoke
             Class<?> serviceClass = serviceBean.getClass();
             String methodName = rpcRequest.getMethodName();
             Class<?>[] parameterTypes = rpcRequest.getParameterTypes();
@@ -231,8 +223,7 @@ public class RpcProviderFactory {
 
             rpcResponse.setResult(result);
         } catch (Throwable t) {
-            // catch error
-            logger.error("xxl-rpc provider invokeService error.", t);
+            logger.error("rpc provider invokeService error.", t);
             rpcResponse.setErrorMsg(ThrowableUtil.toString(t));
         }
 

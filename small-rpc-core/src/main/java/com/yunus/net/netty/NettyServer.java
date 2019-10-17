@@ -47,7 +47,7 @@ public class NettyServer extends BaseServer {
 
         // on stop
         onStoped();
-        logger.info(">>>>>>>>>>> xxl-rpc remoting server destroy success.");
+        logger.info(">>>>>>>>>>> rpc remoting server destroy success.");
     }
 
     class BootStrap implements Runnable {
