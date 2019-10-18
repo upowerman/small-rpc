@@ -8,14 +8,12 @@ import java.util.Set;
 import java.util.TreeSet;
 
 /**
- * 本地直连方式
- *
  * @author gaoyunfeng
  */
 public class LocalServiceRegistry extends BaseServiceRegistry {
 
     /**
-     * 注册表
+     * 注册表 interface#version  treeSet 注册信息ß
      */
     private Map<String, TreeSet<String>> registryData;
 

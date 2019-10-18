@@ -25,24 +25,20 @@ import java.util.Set;
  * @author gaoyunfeng
  */
 public class RpcSpringInvokerFactory extends InstantiationAwareBeanPostProcessorAdapter implements InitializingBean, DisposableBean, BeanFactoryAware {
-    private Logger logger = LoggerFactory.getLogger(RpcSpringInvokerFactory.class);
 
+    private Logger logger = LoggerFactory.getLogger(RpcSpringInvokerFactory.class);
+    /**
+     * 服务注册实现类 todo
+     */
     private Class<? extends BaseServiceRegistry> serviceRegistryClass;
     private Map<String, String> serviceRegistryParam;
 
-    private BeanFactory beanFactory;
-
-
-    public void setServiceRegistryClass(Class<? extends BaseServiceRegistry> serviceRegistryClass) {
-        this.serviceRegistryClass = serviceRegistryClass;
-    }
-
-    public void setServiceRegistryParam(Map<String, String> serviceRegistryParam) {
-        this.serviceRegistryParam = serviceRegistryParam;
-    }
-
-
     private RpcInvokerFactory rpcInvokerFactory;
+
+    /**
+     * 设置工厂类
+     */
+    private BeanFactory beanFactory;
 
     @Override
     public void afterPropertiesSet() throws Exception {
@@ -93,7 +89,6 @@ public class RpcSpringInvokerFactory extends InstantiationAwareBeanPostProcessor
                 logger.error(e.getMessage(), e);
             }
         }
-
         return super.postProcessAfterInstantiation(bean, beanName);
     }
 
@@ -106,5 +101,13 @@ public class RpcSpringInvokerFactory extends InstantiationAwareBeanPostProcessor
     @Override
     public void setBeanFactory(BeanFactory beanFactory) throws BeansException {
         this.beanFactory = beanFactory;
+    }
+
+    public void setServiceRegistryClass(Class<? extends BaseServiceRegistry> serviceRegistryClass) {
+        this.serviceRegistryClass = serviceRegistryClass;
+    }
+
+    public void setServiceRegistryParam(Map<String, String> serviceRegistryParam) {
+        this.serviceRegistryParam = serviceRegistryParam;
     }
 }
