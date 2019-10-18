@@ -31,7 +31,7 @@ public class ThreadPoolUtil {
                     public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
                         throw new RpcException("rpc " + serverType + " Thread pool is EXHAUSTED!");
                     }
-                });        // default maxThreads 300, minThreads 60
+                });
 
         return serverHandlerPool;
     }

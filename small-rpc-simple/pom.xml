@@ -11,5 +11,25 @@
 
     <artifactId>samll-rpc-simple</artifactId>
 
+    <packaging>pom</packaging>
+
+    <modules>
+        <module>small-rpc-sample-springboot-api</module>
+        <module>small-rpc-sample-springboot-client</module>
+        <module>small-rpc-sample-springboot-server</module>
+    </modules>
+
+    <!-- spring boot 依赖 -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-starter-parent</artifactId>
+                <version>${spring-boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
 </project>

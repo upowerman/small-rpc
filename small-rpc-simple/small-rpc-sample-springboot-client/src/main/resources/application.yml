@@ -1,0 +1,10 @@
+server:
+  port: 8091
+spring:
+  application:
+    name: hello-service-client
+
+small-rpc:
+  registry:
+    address: localhost:7080
+

@@ -65,11 +65,4 @@ public @interface RpcReference {
      */
     String address() default "";
 
-    /**
-     * 调用token
-     *
-     * @return
-     */
-    String accessToken() default "";
-
 }

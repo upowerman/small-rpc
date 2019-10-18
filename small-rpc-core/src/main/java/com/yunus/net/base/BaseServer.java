@@ -37,10 +37,10 @@ public abstract class BaseServer {
     /**
      * 开启服务
      *
-     * @param RpcProviderFactory
+     * @param rpcProviderFactory
      * @throws Exception
      */
-    public abstract void start(final RpcProviderFactory RpcProviderFactory) throws Exception;
+    public abstract void start(final RpcProviderFactory rpcProviderFactory) throws Exception;
 
     /**
      * 开启以后回调

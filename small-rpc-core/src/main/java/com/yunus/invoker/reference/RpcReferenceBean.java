@@ -38,7 +38,6 @@ public class RpcReferenceBean {
     private long timeout = 1000;
 
     private String address;
-    private String accessToken;
 
     private RpcInvokeCallback invokeCallback;
 
@@ -52,7 +51,6 @@ public class RpcReferenceBean {
                             String version,
                             long timeout,
                             String address,
-                            String accessToken,
                             RpcInvokeCallback invokeCallback,
                             RpcInvokerFactory invokerFactory) {
 
@@ -64,7 +62,6 @@ public class RpcReferenceBean {
         this.version = version;
         this.timeout = timeout;
         this.address = address;
-        this.accessToken = accessToken;
         this.invokeCallback = invokeCallback;
         this.invokerFactory = invokerFactory;
 
@@ -120,21 +117,24 @@ public class RpcReferenceBean {
     }
 
 
+    /**
+     * 获取代理对象
+     *
+     * @return
+     */
     public Object getObject() {
         return Proxy.newProxyInstance(Thread.currentThread()
                         .getContextClassLoader(), new Class[]{iface},
                 new InvocationHandler() {
-                    @Override
                     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
 
                         // method param
-                        String className = method.getDeclaringClass().getName();    // iface.getName()
-                        String varsion_ = version;
+                        String className = method.getDeclaringClass().getName();
+                        String version = RpcReferenceBean.this.version;
                         String methodName = method.getName();
                         Class<?>[] parameterTypes = method.getParameterTypes();
                         Object[] parameters = args;
 
-                        // filter for generic
                         if (className.equals(RpcGenericService.class.getName()) && methodName.equals("invoke")) {
 
                             Class<?>[] paramTypes = null;
@@ -149,15 +149,13 @@ public class RpcReferenceBean {
                             }
 
                             className = (String) args[0];
-                            varsion_ = (String) args[1];
+                            version = (String) args[1];
                             methodName = (String) args[2];
                             parameterTypes = paramTypes;
                             parameters = (Object[]) args[4];
                         }
 
-                        // filter method like "Object.toString()"
                         if (className.equals(Object.class.getName())) {
-                            logger.info(">>>>>>>>>>> rpc proxy class-method not support [{}#{}]", className, methodName);
                             throw new RpcException("rpc proxy class-method not support");
                         }
 
@@ -166,7 +164,7 @@ public class RpcReferenceBean {
                         if (finalAddress == null || finalAddress.trim().length() == 0) {
                             if (invokerFactory != null && invokerFactory.getServiceRegistry() != null) {
                                 // discovery
-                                String serviceKey = RpcProviderFactory.makeServiceKey(className, varsion_);
+                                String serviceKey = RpcProviderFactory.makeServiceKey(className, version);
                                 TreeSet<String> addressSet = invokerFactory.getServiceRegistry().discovery(serviceKey);
                                 // load balance
                                 if (addressSet == null || addressSet.size() == 0) {
@@ -187,7 +185,6 @@ public class RpcReferenceBean {
                         RpcRequest RpcRequest = new RpcRequest();
                         RpcRequest.setRequestId(UUID.randomUUID().toString());
                         RpcRequest.setCreateMillisTime(System.currentTimeMillis());
-                        RpcRequest.setAccessToken(accessToken);
                         RpcRequest.setClassName(className);
                         RpcRequest.setMethodName(methodName);
                         RpcRequest.setParameterTypes(parameterTypes);

@@ -30,6 +30,8 @@ public class RpcSpringInvokerFactory extends InstantiationAwareBeanPostProcessor
     private Class<? extends BaseServiceRegistry> serviceRegistryClass;
     private Map<String, String> serviceRegistryParam;
 
+    private BeanFactory beanFactory;
+
 
     public void setServiceRegistryClass(Class<? extends BaseServiceRegistry> serviceRegistryClass) {
         this.serviceRegistryClass = serviceRegistryClass;
@@ -70,21 +72,13 @@ public class RpcSpringInvokerFactory extends InstantiationAwareBeanPostProcessor
                             rpcReference.version(),
                             rpcReference.timeout(),
                             rpcReference.address(),
-                            rpcReference.accessToken(),
                             null,
                             rpcInvokerFactory
                     );
 
                     Object serviceProxy = referenceBean.getObject();
-
-                    // set bean
                     field.setAccessible(true);
                     field.set(bean, serviceProxy);
-
-                    logger.info(">>>>>>>>>>> rpc, invoker factory init reference bean success. serviceKey = {}, bean.field = {}.{}",
-                            RpcProviderFactory.makeServiceKey(iface.getName(), rpcReference.version()), beanName, field.getName());
-
-                    // collection
                     String serviceKey = RpcProviderFactory.makeServiceKey(iface.getName(), rpcReference.version());
                     serviceKeyList.add(serviceKey);
 
@@ -108,8 +102,6 @@ public class RpcSpringInvokerFactory extends InstantiationAwareBeanPostProcessor
     public void destroy() throws Exception {
         rpcInvokerFactory.stop();
     }
-
-    private BeanFactory beanFactory;
 
     @Override
     public void setBeanFactory(BeanFactory beanFactory) throws BeansException {
