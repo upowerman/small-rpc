@@ -20,8 +20,10 @@
         <spring-context.version>5.1.9.RELEASE</spring-context.version>
         <spring.version>4.3.24.RELEASE</spring.version>
         <hessian.version>4.0.62</hessian.version>
-        <maven-source-plugin.version>3.1.0</maven-source-plugin.version>
+        <maven-compiler-plugin.version>2.5.1</maven-compiler-plugin.version>
         <slf4j-api.version>1.7.28</slf4j-api.version>
+        <spring.version>4.3.24.RELEASE</spring.version>
+        <spring-boot.version>1.5.22.RELEASE</spring-boot.version>
     </properties>
 
     <dependencyManagement>
@@ -89,19 +91,16 @@
 
     <build>
         <plugins>
-            <!-- Source -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-source-plugin</artifactId>
-                <version>${maven-source-plugin.version}</version>
-                <executions>
-                    <execution>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>jar-no-fork</goal>
-                        </goals>
-                    </execution>
-                </executions>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>${maven-compiler-plugin.version}</version>
+                <configuration>
+                    <source>1.8</source>
+                    <target>1.8</target>
+                    <encoding>UTF-8</encoding>
+                    <showWarnings>true</showWarnings>
+                </configuration>
             </plugin>
         </plugins>
     </build>

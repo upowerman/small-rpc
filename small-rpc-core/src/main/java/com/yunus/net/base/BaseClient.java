@@ -14,10 +14,10 @@ public abstract class BaseClient {
     protected static final Logger logger = LoggerFactory.getLogger(BaseClient.class);
 
 
-    protected volatile RpcReferenceBean RpcReferenceBean;
+    protected volatile RpcReferenceBean rpcReferenceBean;
 
-    public void init(com.yunus.invoker.reference.RpcReferenceBean RpcReferenceBean) {
-        this.RpcReferenceBean = RpcReferenceBean;
+    public void init(RpcReferenceBean rpcReferenceBean) {
+        this.rpcReferenceBean = rpcReferenceBean;
     }
 
 
@@ -25,11 +25,11 @@ public abstract class BaseClient {
      * 异步发送绑定requestId 和 响应response
      *
      * @param address
-     * @param RpcRequest
+     * @param request
      * @return
      * @throws Exception
      */
-    public abstract void asyncSend(String address, RpcRequest RpcRequest) throws Exception;
+    public abstract void asyncSend(String address, RpcRequest request) throws Exception;
 
 }
 

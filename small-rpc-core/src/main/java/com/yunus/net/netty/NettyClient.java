@@ -14,6 +14,6 @@ public class NettyClient extends BaseClient {
 
     @Override
     public void asyncSend(String address, RpcRequest request) throws Exception {
-        ConnectClient.asyncSend(request, address, connectClientImpl, RpcReferenceBean);
+        ConnectClient.asyncSend(request, address, connectClientImpl, rpcReferenceBean);
     }
 }

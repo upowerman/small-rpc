@@ -45,18 +45,9 @@ public class RpcSpringProviderFactory extends RpcProviderFactory implements Appl
         this.serialize = serialize;
     }
 
-    @Override
-    public int getCorePoolSize() {
-        return corePoolSize;
-    }
 
     public void setCorePoolSize(int corePoolSize) {
         this.corePoolSize = corePoolSize;
-    }
-
-    @Override
-    public int getMaxPoolSize() {
-        return maxPoolSize;
     }
 
     public void setMaxPoolSize(int maxPoolSize) {
@@ -114,9 +105,6 @@ public class RpcSpringProviderFactory extends RpcProviderFactory implements Appl
                 super.addService(iface, version, serviceBean);
             }
         }
-
-        // TODO，addServices by api + prop
-
     }
 
     @Override
