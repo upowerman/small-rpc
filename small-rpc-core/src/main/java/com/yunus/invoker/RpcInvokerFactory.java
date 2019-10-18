@@ -19,19 +19,28 @@ import java.util.concurrent.*;
  */
 public class RpcInvokerFactory {
 
-
     private static Logger logger = LoggerFactory.getLogger(RpcInvokerFactory.class);
 
     private static volatile RpcInvokerFactory instance = new RpcInvokerFactory(LocalServiceRegistry.class, null);
 
-    public static RpcInvokerFactory getInstance() {
-        return instance;
-    }
-
-
     private Class<? extends BaseServiceRegistry> serviceRegistryClass;
     private Map<String, String> serviceRegistryParam;
 
+    private BaseServiceRegistry serviceRegistry;
+
+    /**
+     * 服务停止时的回调函数
+     */
+    private List<BaseCallback> stopCallbackList = new ArrayList<BaseCallback>();
+
+    private ThreadPoolExecutor responseCallbackThreadPool = null;
+
+    /**
+     * 请求cache
+     * key-requestId
+     * value-响应体
+     */
+    private ConcurrentMap<String, RpcFutureResponse> futureResponsePool = new ConcurrentHashMap<String, RpcFutureResponse>();
 
     public RpcInvokerFactory() {
     }
@@ -43,19 +52,18 @@ public class RpcInvokerFactory {
 
 
     public void start() throws Exception {
-        // start registry
         if (serviceRegistryClass != null) {
             serviceRegistry = serviceRegistryClass.newInstance();
             serviceRegistry.start(serviceRegistryParam);
         }
     }
 
-    public void  stop() throws Exception {
+    public void stop() throws Exception {
         if (serviceRegistry != null) {
             serviceRegistry.stop();
         }
         if (stopCallbackList.size() > 0) {
-            for (BaseCallback callback: stopCallbackList) {
+            for (BaseCallback callback : stopCallbackList) {
                 try {
                     callback.run();
                 } catch (Exception e) {
@@ -66,41 +74,12 @@ public class RpcInvokerFactory {
         stopCallbackThreadPool();
     }
 
-
-    private BaseServiceRegistry serviceRegistry;
-
-    public BaseServiceRegistry getServiceRegistry() {
-        return serviceRegistry;
-    }
-
-
-    private List<BaseCallback> stopCallbackList = new ArrayList<BaseCallback>();
-
-    public void addStopCallBack(BaseCallback callback){
-        stopCallbackList.add(callback);
-    }
-
-
-
-    private ConcurrentMap<String, RpcFutureResponse> futureResponsePool = new ConcurrentHashMap<String, RpcFutureResponse>();
-    public void setInvokerFuture(String requestId, RpcFutureResponse futureResponse){
-        futureResponsePool.put(requestId, futureResponse);
-    }
-    public void removeInvokerFuture(String requestId){
-        futureResponsePool.remove(requestId);
-    }
-    public void notifyInvokerFuture(String requestId, final RpcResponse response){
-
-        // get
+    public void notifyInvokerFuture(String requestId, final RpcResponse response) {
         final RpcFutureResponse futureResponse = futureResponsePool.get(requestId);
         if (futureResponse == null) {
             return;
         }
-
-        // notify
-        if (futureResponse.getInvokeCallback()!=null) {
-
-            // callback type
+        if (futureResponse.getInvokeCallback() != null) {
             try {
                 executeResponseCallback(new Runnable() {
                     @Override
@@ -112,24 +91,17 @@ public class RpcInvokerFactory {
                         }
                     }
                 });
-            }catch (Exception e) {
+            } catch (Exception e) {
                 logger.error(e.getMessage(), e);
             }
         } else {
-
-            // other nomal type
             futureResponse.setResponse(response);
         }
-
-        // do remove
+        // 移除 response
         futureResponsePool.remove(requestId);
-
     }
 
-
-    private ThreadPoolExecutor responseCallbackThreadPool = null;
-    public void executeResponseCallback(Runnable runnable){
-
+    public void executeResponseCallback(Runnable runnable) {
         if (responseCallbackThreadPool == null) {
             synchronized (this) {
                 if (responseCallbackThreadPool == null) {
@@ -157,9 +129,29 @@ public class RpcInvokerFactory {
         responseCallbackThreadPool.execute(runnable);
     }
 
+    public BaseServiceRegistry getServiceRegistry() {
+        return serviceRegistry;
+    }
+
+    public void addStopCallBack(BaseCallback callback) {
+        stopCallbackList.add(callback);
+    }
+
+    public void setInvokerFuture(String requestId, RpcFutureResponse futureResponse) {
+        futureResponsePool.put(requestId, futureResponse);
+    }
+
+    public void removeInvokerFuture(String requestId) {
+        futureResponsePool.remove(requestId);
+    }
+
     public void stopCallbackThreadPool() {
         if (responseCallbackThreadPool != null) {
             responseCallbackThreadPool.shutdown();
         }
+    }
+
+    public static RpcInvokerFactory getInstance() {
+        return instance;
     }
 }
