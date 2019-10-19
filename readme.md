@@ -61,3 +61,17 @@
                                  return invokerFactory;
                             }
                         }
+        5. 服务类需要用@RpcService 注解（服务了必须在ioc容器中）
+        6. 消费方引用是需要注解@RpcReference 例如：
+                @RestController
+                @RequestMapping("/")
+                public class HelloController {
+
+                     @RpcReference
+                     private HelloService helloService;
+
+                     @GetMapping("/hello")
+                     public HelloDTO hello(String name) {
+                          return helloService.hello(name);
+                     }
+                }
