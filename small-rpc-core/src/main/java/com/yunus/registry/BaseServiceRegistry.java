@@ -10,13 +10,16 @@ import java.util.TreeSet;
  * @author gaoyunfeng
  */
 public abstract class BaseServiceRegistry {
+
     /**
-     * start
+     * 开始
+     *
+     * @param param
      */
     public abstract void start(Map<String, String> param);
 
     /**
-     * start
+     * 停止
      */
     public abstract void stop();
 

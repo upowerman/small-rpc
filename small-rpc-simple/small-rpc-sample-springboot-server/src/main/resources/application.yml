@@ -7,5 +7,5 @@ spring:
 
 # 配置small rpc
 small-rpc:
-  remoting:
+  provider:
     port: 7080

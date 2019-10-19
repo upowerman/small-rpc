@@ -8,7 +8,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.util.HashMap;
+import java.util.Collections;
 
 /**
  * 配置类
@@ -20,7 +20,7 @@ public class RpcProviderConfig {
 
     private Logger logger = LoggerFactory.getLogger(RpcProviderConfig.class);
 
-    @Value("${small-rpc.remoting.port}")
+    @Value("${small-rpc.provider.port}")
     private int port;
 
     @Bean
@@ -30,8 +30,7 @@ public class RpcProviderConfig {
         providerFactory.setCorePoolSize(10);
         providerFactory.setMaxPoolSize(20);
         providerFactory.setServiceRegistryClass(LocalServiceRegistry.class);
-        HashMap<String, String> params = new HashMap<>();
-        providerFactory.setServiceRegistryParam(params);
+        providerFactory.setServiceRegistryParam(Collections.EMPTY_MAP);
         return providerFactory;
     }
 }

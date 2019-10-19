@@ -48,8 +48,8 @@ public class RpcSpringInvokerFactory extends InstantiationAwareBeanPostProcessor
 
     @Override
     public boolean postProcessAfterInstantiation(final Object bean, final String beanName) throws BeansException {
-
         final Set<String> serviceKeyList = new HashSet<>();
+        // 判断实例化的bean中是否有被RpcReference注解的bean字段
         ReflectionUtils.doWithFields(bean.getClass(), new ReflectionUtils.FieldCallback() {
             @Override
             public void doWith(Field field) throws IllegalArgumentException, IllegalAccessException {
@@ -71,7 +71,7 @@ public class RpcSpringInvokerFactory extends InstantiationAwareBeanPostProcessor
                             null,
                             rpcInvokerFactory
                     );
-
+                    // jdk设置代理对象
                     Object serviceProxy = referenceBean.getObject();
                     field.setAccessible(true);
                     field.set(bean, serviceProxy);

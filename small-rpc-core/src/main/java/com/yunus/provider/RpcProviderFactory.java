@@ -34,7 +34,6 @@ public class RpcProviderFactory {
 
     private String ip;
     private int port;
-    private String accessToken;
 
     /**
      * 对应的注册方式 本地  zk  等其他注册中心
@@ -64,7 +63,6 @@ public class RpcProviderFactory {
                            int maxPoolSize,
                            String ip,
                            int port,
-                           String accessToken,
                            Class<? extends BaseServiceRegistry> serviceRegistryClass,
                            Map<String, String> serviceRegistryParam) {
 
@@ -75,7 +73,6 @@ public class RpcProviderFactory {
         this.maxPoolSize = maxPoolSize;
         this.ip = ip;
         this.port = port;
-        this.accessToken = accessToken;
         this.serviceRegistryClass = serviceRegistryClass;
         this.serviceRegistryParam = serviceRegistryParam;
 
@@ -141,7 +138,6 @@ public class RpcProviderFactory {
     }
 
     public void stop() throws Exception {
-        // stop server
         server.stop();
     }
 
@@ -171,8 +167,6 @@ public class RpcProviderFactory {
     public void addService(String iface, String version, Object serviceBean) {
         String serviceKey = makeServiceKey(iface, version);
         serviceData.put(serviceKey, serviceBean);
-
-        logger.info(">>>>>>>>>>> rpc, provider factory add service success. serviceKey = {}, serviceBean = {}", serviceKey, serviceBean.getClass());
     }
 
     /**
@@ -198,11 +192,6 @@ public class RpcProviderFactory {
             rpcResponse.setErrorMsg("The timestamp difference between admin and executor exceeds the limit.");
             return rpcResponse;
         }
-        if (accessToken != null && accessToken.trim().length() > 0 && !accessToken.trim().equals(rpcRequest.getAccessToken())) {
-            rpcResponse.setErrorMsg("The access token[" + rpcRequest.getAccessToken() + "] is wrong.");
-            return rpcResponse;
-        }
-
         try {
             Class<?> serviceClass = serviceBean.getClass();
             String methodName = rpcRequest.getMethodName();
