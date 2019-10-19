@@ -11,8 +11,5 @@
             ├    ├── small-rpc-sample-springboot-api    -- 接口api jar
             ├    ├── small-rpc-sample-springboot-client -- 调用方hello world
             └──  └── small-rpc-sample-springboot-server -- 服务提供方hello world
-            
-            
-        
-
-
+  
+## 使用示例
