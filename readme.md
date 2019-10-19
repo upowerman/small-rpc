@@ -39,9 +39,8 @@
                             providerFactory.setServiceRegistryParam(Collections.EMPTY_MAP);
                             return providerFactory;
                         }
-                    }
+                    }  
 
-  
        4. invoker方 配置如下：
        
  >
