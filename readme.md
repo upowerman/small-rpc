@@ -1,4 +1,7 @@
-自己手写一款精简版的RPC
+small-rpc 是一款基于netty+hessian的精简版的RPC
 
-目前未使用注册中心，属于直连调用模式
-序列化选型：hessian
+目前功能点：
+            
+        
+
+
