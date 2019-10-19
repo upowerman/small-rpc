@@ -19,7 +19,6 @@
       1. 下载源码进行打包 mvn clean package
       2. 把上述包 small-rpc-core-1.x.jar 引入项目
       3. provider方 配置如下：
-           >
                     @Configuration
                     public class RpcProviderConfig {
 
@@ -43,7 +42,6 @@
                     }  
 
        4. invoker方 配置如下：
-            >
                          @Configuration
                         public class RpcInvokerConfig {
                             private Logger logger = LoggerFactory.getLogger(RpcInvokerConfig.class);
