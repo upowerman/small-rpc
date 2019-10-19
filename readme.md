@@ -17,18 +17,20 @@
       由于目前没有上传到maven仓库  需要自行打包引入项目使用
       1. 下载源码进行打包 mvn clean package
       2. 把上述包 small-rpc-core-1.x.jar 引入项目
-      3. provider 方配置如下：
+      3. provider方 配置如下：
 >
-                    `@Configuration
+                    @Configuration
                     public class RpcProviderConfig {
 
                         private Logger logger = LoggerFactory.getLogger(RpcProviderConfig.class);
-
+                        
+                        // netty 端口
                         @Value("${small-rpc.provider.port}")
                         private int port;
 
                         @Bean
                         public RpcSpringProviderFactory rpcSpringProviderFactory() {
+                            // 核心类 获取服务提供类 启动netty
                             RpcSpringProviderFactory providerFactory = new RpcSpringProviderFactory();
                             providerFactory.setPort(port);
                             providerFactory.setCorePoolSize(10);
@@ -37,4 +39,26 @@
                             providerFactory.setServiceRegistryParam(Collections.EMPTY_MAP);
                             return providerFactory;
                         }
-                    }`
+                    }
+
+       4. invoker方 配置如下：
+ >
+                         @Configuration
+                        public class RpcInvokerConfig {
+                            private Logger logger = LoggerFactory.getLogger(RpcInvokerConfig.class);
+
+                            // 指定提供方地址
+                            @Value("${small-rpc.registry.address}")
+                            private String address;
+
+                            @Bean
+                            public RpcSpringInvokerFactory JobExecutor() {
+                                 RpcSpringInvokerFactory invokerFactory = new RpcSpringInvokerFactory();
+                                 invokerFactory.setServiceRegistryClass(LocalServiceRegistry.class);
+                                 HashMap<String, String> params = new HashMap<>();
+                                 // 指定提供方地址
+                                 params.put(LocalServiceRegistry.DIRECT_ADDRESS, address);
+                                 invokerFactory.setServiceRegistryParam(params);
+                                 return invokerFactory;
+                            }
+                        }
