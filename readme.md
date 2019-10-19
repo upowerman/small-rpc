@@ -19,8 +19,7 @@
       2. 把上述包 small-rpc-core-1.x.jar 引入项目
       3. provider 方配置如下：
 >
-                    `
-                    @Configuration
+                    `@Configuration
                     public class RpcProviderConfig {
 
                         private Logger logger = LoggerFactory.getLogger(RpcProviderConfig.class);
@@ -38,5 +37,4 @@
                             providerFactory.setServiceRegistryParam(Collections.EMPTY_MAP);
                             return providerFactory;
                         }
-                    }
-                    `
+                    }`
