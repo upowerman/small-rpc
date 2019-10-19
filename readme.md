@@ -41,7 +41,9 @@
                         }
                     }
 
+  
        4. invoker方 配置如下：
+       
  >
                          @Configuration
                         public class RpcInvokerConfig {
