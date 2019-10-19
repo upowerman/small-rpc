@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/")
 public class HelloController {
 
-    @RpcReference(address = "localhost:7080")
+    @RpcReference
     private HelloService helloService;
 
     @GetMapping("/hello")

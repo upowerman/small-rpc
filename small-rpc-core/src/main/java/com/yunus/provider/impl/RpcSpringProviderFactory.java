@@ -31,57 +31,15 @@ public class RpcSpringProviderFactory extends RpcProviderFactory implements Appl
 
     private String ip;
     private int port;
-    private String accessToken;
 
     private Class<? extends BaseServiceRegistry> serviceRegistryClass;
     private Map<String, String> serviceRegistryParam;
-
-
-    public void setNetType(String netType) {
-        this.netType = netType;
-    }
-
-    public void setSerialize(String serialize) {
-        this.serialize = serialize;
-    }
-
-
-    public void setCorePoolSize(int corePoolSize) {
-        this.corePoolSize = corePoolSize;
-    }
-
-    public void setMaxPoolSize(int maxPoolSize) {
-        this.maxPoolSize = maxPoolSize;
-    }
-
-    public void setIp(String ip) {
-        this.ip = ip;
-    }
-
-    public void setPort(int port) {
-        this.port = port;
-    }
-
-    public void setAccessToken(String accessToken) {
-        this.accessToken = accessToken;
-    }
-
-    public void setServiceRegistryClass(Class<? extends BaseServiceRegistry> serviceRegistryClass) {
-        this.serviceRegistryClass = serviceRegistryClass;
-    }
-
-    public void setServiceRegistryParam(Map<String, String> serviceRegistryParam) {
-        this.serviceRegistryParam = serviceRegistryParam;
-    }
-
 
     private void prepareConfig() {
         NetEnum netTypeEnum = NetEnum.autoMatch(netType, null);
         SerializeEnum serializeEnum = SerializeEnum.match(serialize, null);
         BaseSerializer serializer = serializeEnum != null ? serializeEnum.getSerializer() : null;
-
-        // init config
-        super.initConfig(netTypeEnum, serializer, corePoolSize, maxPoolSize, ip, port, accessToken, serviceRegistryClass, serviceRegistryParam);
+        super.initConfig(netTypeEnum, serializer, corePoolSize, maxPoolSize, ip, port, serviceRegistryClass, serviceRegistryParam);
     }
 
     /**
@@ -116,5 +74,38 @@ public class RpcSpringProviderFactory extends RpcProviderFactory implements Appl
     @Override
     public void destroy() throws Exception {
         super.stop();
+    }
+
+    public void setNetType(String netType) {
+        this.netType = netType;
+    }
+
+    public void setSerialize(String serialize) {
+        this.serialize = serialize;
+    }
+
+
+    public void setCorePoolSize(int corePoolSize) {
+        this.corePoolSize = corePoolSize;
+    }
+
+    public void setMaxPoolSize(int maxPoolSize) {
+        this.maxPoolSize = maxPoolSize;
+    }
+
+    public void setIp(String ip) {
+        this.ip = ip;
+    }
+
+    public void setPort(int port) {
+        this.port = port;
+    }
+
+    public void setServiceRegistryClass(Class<? extends BaseServiceRegistry> serviceRegistryClass) {
+        this.serviceRegistryClass = serviceRegistryClass;
+    }
+
+    public void setServiceRegistryParam(Map<String, String> serviceRegistryParam) {
+        this.serviceRegistryParam = serviceRegistryParam;
     }
 }

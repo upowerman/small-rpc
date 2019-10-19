@@ -26,9 +26,8 @@ public class RpcInvokerConfig {
         RpcSpringInvokerFactory invokerFactory = new RpcSpringInvokerFactory();
         invokerFactory.setServiceRegistryClass(LocalServiceRegistry.class);
         HashMap<String, String> params = new HashMap<>();
-        params.put("",address);
+        params.put(LocalServiceRegistry.DIRECT_ADDRESS, address);
         invokerFactory.setServiceRegistryParam(params);
-        logger.info(">>>>>>>>>>> xxl-rpc invoker config init finish.");
         return invokerFactory;
     }
 }

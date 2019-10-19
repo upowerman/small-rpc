@@ -15,6 +15,9 @@ import java.util.concurrent.ConcurrentMap;
 public abstract class ConnectClient {
     protected static transient Logger logger = LoggerFactory.getLogger(ConnectClient.class);
 
+    private static volatile ConcurrentMap<String, ConnectClient> connectClientMap;
+    private static volatile ConcurrentMap<String, Object> connectClientLockMap = new ConcurrentHashMap<>();
+
     /**
      * 初始化方法
      *
@@ -68,12 +71,18 @@ public abstract class ConnectClient {
 
     }
 
-    private static volatile ConcurrentMap<String, ConnectClient> connectClientMap;
-    private static volatile ConcurrentMap<String, Object> connectClientLockMap = new ConcurrentHashMap<>();
-
+    /**
+     * 以后负载均衡时 根据不同的address 获取不同的 connectClient
+     *
+     * @param address           请求地址
+     * @param connectClientImpl 实现类
+     * @param rpcReferenceBean  ReferenceBean
+     * @return
+     * @throws Exception
+     */
     private static ConnectClient getPool(String address, Class<? extends ConnectClient> connectClientImpl,
                                          final RpcReferenceBean rpcReferenceBean) throws Exception {
-
+        // init
         if (connectClientMap == null) {
             synchronized (ConnectClient.class) {
                 if (connectClientMap == null) {

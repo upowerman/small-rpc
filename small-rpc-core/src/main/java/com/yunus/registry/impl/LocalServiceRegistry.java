@@ -1,6 +1,7 @@
 package com.yunus.registry.impl;
 
 import com.yunus.registry.BaseServiceRegistry;
+import org.springframework.util.StringUtils;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -13,9 +14,14 @@ import java.util.TreeSet;
 public class LocalServiceRegistry extends BaseServiceRegistry {
 
     /**
-     * 注册表 interface#version  treeSet 注册信息ß
+     * 指定rpc 地址的key
      */
-    private Map<String, TreeSet<String>> registryData;
+    public static final String DIRECT_ADDRESS = "DIRECT_ADDRESS";
+
+    /**
+     * 直连 地址
+     */
+    private TreeSet<String> directAddress;
 
 
     /**
@@ -23,43 +29,29 @@ public class LocalServiceRegistry extends BaseServiceRegistry {
      */
     @Override
     public void start(Map<String, String> param) {
-        registryData = new HashMap<String, TreeSet<String>>();
+        directAddress = new TreeSet<String>();
+        String address = param.get(DIRECT_ADDRESS);
+        if(!StringUtils.isEmpty(address)){
+            directAddress.add(address);
+        }
     }
 
     @Override
     public void stop() {
-        registryData.clear();
+        directAddress.clear();
     }
 
 
     @Override
     public boolean registry(Set<String> keys, String value) {
-        if (keys == null || keys.size() == 0 || value == null || value.trim().length() == 0) {
-            return false;
-        }
-        for (String key : keys) {
-            TreeSet<String> values = registryData.get(key);
-            if (values == null) {
-                values = new TreeSet<String>();
-                registryData.put(key, values);
-            }
-            values.add(value);
-        }
-        return true;
+        // 直连没有注册功能 直接忽略
+        return false;
     }
 
     @Override
     public boolean remove(Set<String> keys, String value) {
-        if (keys == null || keys.size() == 0 || value == null || value.trim().length() == 0) {
-            return false;
-        }
-        for (String key : keys) {
-            TreeSet<String> values = registryData.get(key);
-            if (values != null) {
-                values.remove(value);
-            }
-        }
-        return true;
+        // 直连没有移除功能 忽略
+        return false;
     }
 
     @Override
@@ -69,17 +61,14 @@ public class LocalServiceRegistry extends BaseServiceRegistry {
         }
         Map<String, TreeSet<String>> registryDataTmp = new HashMap<String, TreeSet<String>>();
         for (String key : keys) {
-            TreeSet<String> valueSetTmp = discovery(key);
-            if (valueSetTmp != null) {
-                registryDataTmp.put(key, valueSetTmp);
-            }
+            registryDataTmp.put(key, directAddress);
         }
         return registryDataTmp;
     }
 
     @Override
     public TreeSet<String> discovery(String key) {
-        return registryData.get(key);
+        return directAddress;
     }
 
 }
