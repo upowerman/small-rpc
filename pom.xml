@@ -16,7 +16,7 @@
     </modules>
 
     <properties>
-        <netty-all.version>4.1.39.Final</netty-all.version>
+        <netty-all.version>4.1.42.Final</netty-all.version>
         <spring-context.version>5.1.9.RELEASE</spring-context.version>
         <spring.version>4.3.24.RELEASE</spring.version>
         <hessian.version>4.0.62</hessian.version>
