@@ -2,7 +2,7 @@
      small-rpc 是一款基于netty+hessian的精简版的RPC  
      由于未在生产实践使用，只适合学习使用
 ## 架构简图:
-![image](https://github.com/gwself/small-rpc/blob/master/pic/first.png)
+![image](https://github.com/upowerman/small-rpc/blob/master/pic/first.png)
 
 ## 工程结构：
 >           
