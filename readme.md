@@ -16,9 +16,13 @@
   
 ## 使用示例:
       由于目前没有上传到maven仓库  需要自行打包引入项目使用
+      
       1. 下载源码进行打包 mvn clean package
+      
       2. 把上述包 small-rpc-core-1.x.jar 引入项目
+      
       3. provider方 配置如下：
+      
                     @Configuration
                     public class RpcProviderConfig {
 
@@ -42,7 +46,8 @@
                     }  
 
        4. invoker方 配置如下：
-                         @Configuration
+       
+                        @Configuration
                         public class RpcInvokerConfig {
                             private Logger logger = LoggerFactory.getLogger(RpcInvokerConfig.class);
 
@@ -61,8 +66,11 @@
                                  return invokerFactory;
                             }
                         }
+                        
         5. 服务类需要用@RpcService 注解（服务了必须在ioc容器中）
+        
         6. 消费方引用是需要注解@RpcReference 例如：
+        
                 @RestController
                 @RequestMapping("/")
                 public class HelloController {
