@@ -83,3 +83,7 @@
                           return helloService.hello(name);
                      }
                 }
+
+## 参考资料
+     1.    https://github.com/TFdream/mango
+     2.    https://github.com/apache/dubbo
