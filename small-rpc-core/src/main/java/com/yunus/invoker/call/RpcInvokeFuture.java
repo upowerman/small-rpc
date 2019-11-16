@@ -16,12 +16,10 @@ public class RpcInvokeFuture implements Future {
 
     private RpcFutureResponse futureResponse;
 
+    private static ThreadLocal<RpcInvokeFuture> threadInvokerFuture = new ThreadLocal<RpcInvokeFuture>();
+
     public RpcInvokeFuture(RpcFutureResponse futureResponse) {
         this.futureResponse = futureResponse;
-    }
-
-    public void stop() {
-        futureResponse.removeInvokerFuture();
     }
 
 
@@ -62,9 +60,11 @@ public class RpcInvokeFuture implements Future {
         }
     }
 
+    public void stop() {
+        futureResponse.removeInvokerFuture();
+    }
 
 
-    private static ThreadLocal<RpcInvokeFuture> threadInvokerFuture = new ThreadLocal<RpcInvokeFuture>();
 
     /**
      * get future
