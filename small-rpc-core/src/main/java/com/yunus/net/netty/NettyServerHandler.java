@@ -34,19 +34,20 @@ public class NettyServerHandler extends SimpleChannelInboundHandler<RpcRequest> 
     @Override
     public void channelRead0(final ChannelHandlerContext ctx, final RpcRequest rpcRequest) throws Exception {
 
-        // filter beat
+        // 过滤掉心跳数据包
         if (Beat.BEAT_ID.equalsIgnoreCase(rpcRequest.getRequestId())) {
-            logger.debug(">>>>>>>>>>> rpc provider netty server read beat-ping.");
+            logger.debug("服务提供者 接收到心跳");
             return;
         }
 
-        // do invoke
         try {
+            // 执行远程调用
             serverHandlerPool.execute(new Runnable() {
                 @Override
                 public void run() {
-                    RpcResponse rpcResponse = rpcProviderFactory.invokeService(rpcRequest);
 
+                    RpcResponse rpcResponse = rpcProviderFactory.invokeService(rpcRequest);
+                    // 执行结果回写给调用方
                     ctx.writeAndFlush(rpcResponse);
                 }
             });
@@ -62,7 +63,7 @@ public class NettyServerHandler extends SimpleChannelInboundHandler<RpcRequest> 
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        logger.error(">>>>>>>>>>> rpc provider netty server caught exception", cause);
+        logger.error("服务提供方异常--->", cause);
         ctx.close();
     }
 
@@ -70,7 +71,7 @@ public class NettyServerHandler extends SimpleChannelInboundHandler<RpcRequest> 
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
         if (evt instanceof IdleStateEvent) {
             ctx.channel().close();
-            logger.debug(">>>>>>>>>>> rpc provider netty server close an idle channel.");
+            logger.debug("服务提供者关闭--->idle channel.");
         } else {
             super.userEventTriggered(ctx, evt);
         }

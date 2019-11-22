@@ -4,7 +4,7 @@ import com.yunus.net.netty.NettyClient;
 import com.yunus.net.netty.NettyServer;
 
 /**
- * 定义支持rpc 调用方式的枚举 目前只是netty
+ * 定义支持RPC 调用方式的枚举 目前只是netty
  *
  * @author gaoyunfeng
  */

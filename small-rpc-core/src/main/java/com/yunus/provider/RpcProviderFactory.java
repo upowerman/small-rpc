@@ -18,6 +18,7 @@ import java.util.Map;
  * @author gaoyunfeng
  */
 public class RpcProviderFactory {
+
     private static final Logger logger = LoggerFactory.getLogger(RpcProviderFactory.class);
 
     /**
@@ -41,47 +42,40 @@ public class RpcProviderFactory {
     private Class<? extends BaseServiceRegistry> serviceRegistryClass;
     private Map<String, String> serviceRegistryParam;
 
+    private BaseServiceRegistry serviceRegistry;
+    private String serviceAddress;
     /**
-     * init local rpc service map
+     * 服务类数据
      */
     private Map<String, Object> serviceData = new HashMap<String, Object>();
 
-    /**
-     * 目前只提供netty 方式
-     */
     private BaseServer server;
-    private BaseServiceRegistry serviceRegistry;
-    private String serviceAddress;
 
 
     public RpcProviderFactory() {
     }
 
-    public void initConfig(NetEnum netType,
-                           BaseSerializer serializer,
-                           int corePoolSize,
-                           int maxPoolSize,
-                           String ip,
-                           int port,
-                           Class<? extends BaseServiceRegistry> serviceRegistryClass,
-                           Map<String, String> serviceRegistryParam) {
+    public void initConfig() {
+        checkConfig();
+    }
 
-        // init
+    public void initConfig(NetEnum netType, BaseSerializer serializer) {
         this.netType = netType;
         this.serializer = serializer;
-        this.corePoolSize = corePoolSize;
-        this.maxPoolSize = maxPoolSize;
-        this.ip = ip;
-        this.port = port;
-        this.serviceRegistryClass = serviceRegistryClass;
-        this.serviceRegistryParam = serviceRegistryParam;
+        checkConfig();
+    }
 
+    /**
+     * 验证配置
+     */
+    private void checkConfig() {
         if (this.netType == null) {
-            throw new RpcException("rpc provider netType missing.");
+            throw new RpcException("请配置网络类型--->netType");
         }
         if (this.serializer == null) {
-            throw new RpcException("rpc provider serializer missing.");
+            throw new RpcException("请配置序列化方式--->serializer");
         }
+        // 设置默认 corePoolSize maxPoolSize
         if (!(this.corePoolSize >= 0 && this.maxPoolSize > 0 && this.maxPoolSize >= this.corePoolSize)) {
             this.corePoolSize = 60;
             this.maxPoolSize = 300;
@@ -93,14 +87,13 @@ public class RpcProviderFactory {
             this.port = 7080;
         }
         if (NetUtil.isPortUsed(this.port)) {
-            throw new RpcException("rpc provider port[" + this.port + "] is used.");
+            throw new RpcException("端口号： port[" + this.port + "] 被占用");
         }
         if (this.serviceRegistryClass != null) {
             if (this.serviceRegistryParam == null) {
-                throw new RpcException("rpc provider serviceRegistryParam is missing.");
+                throw new RpcException("请配置服务注册参数--->serviceRegistryParam");
             }
         }
-
     }
 
 
@@ -108,7 +101,7 @@ public class RpcProviderFactory {
         serviceAddress = IpUtil.getIpPort(this.ip, port);
         server = netType.serverClass.newInstance();
         // 设置开始 回调函数
-        server.setStartedCallback(new BaseCallback() {
+        server.setStartCallback(new BaseCallback() {
             @Override
             public void run() throws Exception {
                 // 开始注册
@@ -116,15 +109,16 @@ public class RpcProviderFactory {
                     serviceRegistry = serviceRegistryClass.newInstance();
                     serviceRegistry.start(serviceRegistryParam);
                     if (serviceData.size() > 0) {
+                        // 把服务类注册到注册中心
                         serviceRegistry.registry(serviceData.keySet(), serviceAddress);
                     }
                 }
             }
         });
-        server.setStopedCallback(new BaseCallback() {
+        server.setStopCallback(new BaseCallback() {
             @Override
             public void run() {
-                // stop registry
+                // 停止服务时，移除注册中心中的服务
                 if (serviceRegistry != null) {
                     if (serviceData.size() > 0) {
                         serviceRegistry.remove(serviceData.keySet(), serviceAddress);
@@ -134,6 +128,7 @@ public class RpcProviderFactory {
                 }
             }
         });
+        // 启动服务
         server.start(this);
     }
 
@@ -143,10 +138,10 @@ public class RpcProviderFactory {
 
 
     /**
-     * make service key
+     * 生成serviceData 服务类key
      *
-     * @param iface
-     * @param version
+     * @param iface   接口名
+     * @param version 版本号
      * @return
      */
     public static String makeServiceKey(String iface, String version) {
@@ -158,11 +153,11 @@ public class RpcProviderFactory {
     }
 
     /**
-     * add service
+     * 注册服务类
      *
-     * @param iface
-     * @param version
-     * @param serviceBean
+     * @param iface       接口名称
+     * @param version     版本号
+     * @param serviceBean 服务类bean
      */
     public void addService(String iface, String version, Object serviceBean) {
         String serviceKey = makeServiceKey(iface, version);
@@ -170,9 +165,9 @@ public class RpcProviderFactory {
     }
 
     /**
-     * invoke service
+     * 调用服务
      *
-     * @param rpcRequest
+     * @param rpcRequest 请求对象
      * @return
      */
     public RpcResponse invokeService(RpcRequest rpcRequest) {
@@ -184,12 +179,13 @@ public class RpcProviderFactory {
         Object serviceBean = serviceData.get(serviceKey);
 
         if (serviceBean == null) {
-            rpcResponse.setErrorMsg("The serviceKey[" + serviceKey + "] not found.");
+            rpcResponse.setErrorMsg("服务类[" + serviceKey + "] 没有发现");
             return rpcResponse;
         }
 
+        // 判断时候超过间隔时间
         if (System.currentTimeMillis() - rpcRequest.getCreateMillisTime() > 3 * 60 * 1000) {
-            rpcResponse.setErrorMsg("The timestamp difference between admin and executor exceeds the limit.");
+            rpcResponse.setErrorMsg("发送请求到执行超过限制时间");
             return rpcResponse;
         }
         try {
@@ -204,30 +200,59 @@ public class RpcProviderFactory {
 
             rpcResponse.setResult(result);
         } catch (Throwable t) {
-            logger.error("rpc provider invokeService error.", t);
+            logger.error("服务调用出错", t);
             rpcResponse.setErrorMsg(ThrowableUtil.toString(t));
         }
 
         return rpcResponse;
     }
 
+    public NetEnum getNetType() {
+        return netType;
+    }
+
+    public void setNetType(NetEnum netType) {
+        this.netType = netType;
+    }
+
     public BaseSerializer getSerializer() {
         return serializer;
     }
 
-    public int getPort() {
-        return port;
+    public void setSerializer(BaseSerializer serializer) {
+        this.serializer = serializer;
     }
 
     public int getCorePoolSize() {
         return corePoolSize;
     }
 
+    public void setCorePoolSize(int corePoolSize) {
+        this.corePoolSize = corePoolSize;
+    }
+
     public int getMaxPoolSize() {
         return maxPoolSize;
     }
 
-    public Map<String, Object> getServiceData() {
-        return serviceData;
+    public void setMaxPoolSize(int maxPoolSize) {
+        this.maxPoolSize = maxPoolSize;
     }
+
+    public int getPort() {
+        return port;
+    }
+
+    public void setPort(int port) {
+        this.port = port;
+    }
+
+    public void setServiceRegistryClass(Class<? extends BaseServiceRegistry> serviceRegistryClass) {
+        this.serviceRegistryClass = serviceRegistryClass;
+    }
+
+    public void setServiceRegistryParam(Map<String, String> serviceRegistryParam) {
+        this.serviceRegistryParam = serviceRegistryParam;
+    }
+
 }

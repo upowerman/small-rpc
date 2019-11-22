@@ -58,7 +58,7 @@ public class RpcInvokerFactory {
         }
     }
 
-    public void stop() throws Exception {
+    public void stop() {
         if (serviceRegistry != null) {
             serviceRegistry.stop();
         }

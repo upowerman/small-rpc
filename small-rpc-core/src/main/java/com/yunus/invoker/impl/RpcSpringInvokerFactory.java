@@ -56,7 +56,7 @@ public class RpcSpringInvokerFactory extends InstantiationAwareBeanPostProcessor
                 if (field.isAnnotationPresent(RpcReference.class)) {
                     Class iface = field.getType();
                     if (!iface.isInterface()) {
-                        throw new RpcException("rpc, reference(RpcReference) must be interface.");
+                        throw new RpcException("服务提供类必须是接口");
                     }
                     RpcReference rpcReference = field.getAnnotation(RpcReference.class);
                     RpcReferenceBean referenceBean = new RpcReferenceBean(

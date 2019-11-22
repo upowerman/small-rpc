@@ -5,14 +5,16 @@ import com.yunus.exception.RpcException;
 import java.util.concurrent.*;
 
 /**
- * @author xuxueli 2019-02-18
+ * @author gaoyunfeng
  */
 public class ThreadPoolUtil {
 
     /**
-     * make server thread pool
+     * 生成线程池
      *
-     * @param serverType
+     * @param serverType   服务类型 ：NettyServer | NettyClient
+     * @param corePoolSize 核心线程数
+     * @param maxPoolSize  最大线程数
      * @return
      */
     public static ThreadPoolExecutor makeServerThreadPool(final String serverType, int corePoolSize, int maxPoolSize) {
@@ -23,13 +25,15 @@ public class ThreadPoolUtil {
                 TimeUnit.SECONDS,
                 new LinkedBlockingQueue<Runnable>(1000),
                 new ThreadFactory() {
+                    @Override
                     public Thread newThread(Runnable r) {
-                        return new Thread(r, "rpc, " + serverType + "-serverHandlerPool-" + r.hashCode());
+                        return new Thread(r, "RPC, " + serverType + "-serverHandlerPool-" + r.hashCode());
                     }
                 },
                 new RejectedExecutionHandler() {
+                    @Override
                     public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
-                        throw new RpcException("rpc " + serverType + " Thread pool is EXHAUSTED!");
+                        throw new RpcException("RPC " + serverType + " Thread pool is EXHAUSTED!");
                     }
                 });
 
