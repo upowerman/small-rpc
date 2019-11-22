@@ -62,13 +62,11 @@ public class RpcSpringInvokerFactory extends InstantiationAwareBeanPostProcessor
                     RpcReferenceBean referenceBean = new RpcReferenceBean(
                             rpcReference.netType(),
                             rpcReference.serializer().getSerializer(),
-                            rpcReference.callType(),
                             rpcReference.loadBalance(),
                             iface,
                             rpcReference.version(),
                             rpcReference.timeout(),
                             rpcReference.address(),
-                            null,
                             rpcInvokerFactory
                     );
                     // jdk设置代理对象

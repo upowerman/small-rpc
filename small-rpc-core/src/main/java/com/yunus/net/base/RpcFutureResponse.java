@@ -3,10 +3,8 @@ package com.yunus.net.base;
 import com.yunus.exception.RpcException;
 import com.yunus.invoker.RpcInvokerFactory;
 
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 /**
  * @author gaoyunfeng
@@ -23,13 +21,10 @@ public class RpcFutureResponse implements Future<RpcResponse> {
 
     private Object lock = new Object();
 
-    private RpcInvokeCallback invokeCallback;
 
-
-    public RpcFutureResponse(final RpcInvokerFactory invokerFactory, RpcRequest request, RpcInvokeCallback invokeCallback) {
+    public RpcFutureResponse(final RpcInvokerFactory invokerFactory, RpcRequest request) {
         this.invokerFactory = invokerFactory;
         this.request = request;
-        this.invokeCallback = invokeCallback;
         setInvokerFuture();
     }
 
@@ -41,24 +36,6 @@ public class RpcFutureResponse implements Future<RpcResponse> {
     public void removeInvokerFuture() {
         this.invokerFactory.removeInvokerFuture(request.getRequestId());
     }
-
-    public RpcRequest getRequest() {
-        return request;
-    }
-
-    public RpcInvokeCallback getInvokeCallback() {
-        return invokeCallback;
-    }
-
-
-    public void setResponse(RpcResponse response) {
-        this.response = response;
-        synchronized (lock) {
-            done = true;
-            lock.notifyAll();
-        }
-    }
-
 
 
     @Override
@@ -78,17 +55,22 @@ public class RpcFutureResponse implements Future<RpcResponse> {
         return done;
     }
 
-    @Override
-    public RpcResponse get() throws InterruptedException, ExecutionException {
-        try {
-            return get(-1, TimeUnit.MILLISECONDS);
-        } catch (TimeoutException e) {
-            throw new RpcException(e);
+    /**
+     * 设置响应 response
+     *
+     * @param response 返回的响应
+     */
+    public void setResponse(RpcResponse response) {
+        this.response = response;
+        synchronized (lock) {
+            done = true;
+            // 通知
+            lock.notifyAll();
         }
     }
 
     @Override
-    public RpcResponse get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
+    public RpcResponse get(long timeout, TimeUnit unit) throws InterruptedException {
         if (!done) {
             synchronized (lock) {
                 try {
@@ -103,10 +85,23 @@ public class RpcFutureResponse implements Future<RpcResponse> {
                 }
             }
         }
-
         if (!done) {
             throw new RpcException("rpc, request timeout at:" + System.currentTimeMillis() + ", request:" + request.toString());
         }
         return response;
+    }
+
+    @Override
+    public RpcResponse get() throws InterruptedException {
+        return get(-1, TimeUnit.MILLISECONDS);
+    }
+
+    /**
+     * 获取原始的请求对象
+     *
+     * @return
+     */
+    public RpcRequest getRequest() {
+        return request;
     }
 }
