@@ -23,27 +23,27 @@
       
       3. provider方 配置如下：
       
-                    @Configuration
-                    public class RpcProviderConfig {
+          @Configuration
+          public class RpcProviderConfig {
 
-                        private Logger logger = LoggerFactory.getLogger(RpcProviderConfig.class);
-                        
-                        // netty 端口
-                        @Value("${small-rpc.provider.port}")
-                        private int port;
+              private Logger logger = LoggerFactory.getLogger(RpcProviderConfig.class);
 
-                        @Bean
-                        public RpcSpringProviderFactory rpcSpringProviderFactory() {
-                            // 核心类 获取服务提供类 启动netty
-                            RpcSpringProviderFactory providerFactory = new RpcSpringProviderFactory();
-                            providerFactory.setPort(port);
-                            providerFactory.setCorePoolSize(10);
-                            providerFactory.setMaxPoolSize(20);
-                            providerFactory.setServiceRegistryClass(LocalServiceRegistry.class);
-                            providerFactory.setServiceRegistryParam(Collections.EMPTY_MAP);
-                            return providerFactory;
-                        }
-                    }  
+              // netty 端口
+              @Value("${small-rpc.provider.port}")
+              private int port;
+
+              @Bean
+              public RpcSpringProviderFactory rpcSpringProviderFactory() {
+                  // 核心类 获取服务提供类 启动netty
+                  RpcSpringProviderFactory providerFactory = new RpcSpringProviderFactory();
+                  providerFactory.setPort(port);
+                  providerFactory.setCorePoolSize(10);
+                  providerFactory.setMaxPoolSize(20);
+                  providerFactory.setServiceRegistryClass(LocalServiceRegistry.class);
+                  providerFactory.setServiceRegistryParam(Collections.EMPTY_MAP);
+                  return providerFactory;
+              }
+          }  
 
        4. invoker方 配置如下：
        
