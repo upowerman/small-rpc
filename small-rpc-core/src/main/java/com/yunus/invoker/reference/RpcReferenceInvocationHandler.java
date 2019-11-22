@@ -2,8 +2,6 @@ package com.yunus.invoker.reference;
 
 import com.yunus.exception.RpcException;
 import com.yunus.invoker.RpcInvokerFactory;
-import com.yunus.invoker.call.CallType;
-import com.yunus.invoker.call.RpcInvokeFuture;
 import com.yunus.invoker.route.LoadBalance;
 import com.yunus.net.base.*;
 import com.yunus.provider.RpcProviderFactory;
@@ -38,8 +36,6 @@ public class RpcReferenceInvocationHandler implements InvocationHandler {
         }
         String finalAddress = referenceBean.getAddress();
         RpcInvokerFactory invokerFactory = referenceBean.getInvokerFactory();
-        CallType callType = referenceBean.getCallType();
-        RpcInvokeCallback invokeCallback = referenceBean.getInvokeCallback();
         long timeout = referenceBean.getTimeout();
         BaseClient client = referenceBean.getClient();
         if (finalAddress == null || finalAddress.trim().length() == 0) {
@@ -54,51 +50,18 @@ public class RpcReferenceInvocationHandler implements InvocationHandler {
         request.setParameterTypes(parameterTypes);
         request.setParameters(parameters);
 
-        if (CallType.SYNC == callType) {
-            RpcFutureResponse futureResponse = new RpcFutureResponse(invokerFactory, request, null);
-            try {
-                client.asyncSend(finalAddress, request);
-                RpcResponse rpcResponse = futureResponse.get(timeout, TimeUnit.MILLISECONDS);
-                if (rpcResponse.getErrorMsg() != null) {
-                    throw new RpcException(rpcResponse.getErrorMsg());
-                }
-                return rpcResponse.getResult();
-            } catch (Exception e) {
-                throw (e instanceof RpcException) ? e : new RpcException(e);
-            } finally {
-                futureResponse.removeInvokerFuture();
+        RpcFutureResponse futureResponse = new RpcFutureResponse(invokerFactory, request);
+        try {
+            client.asyncSend(finalAddress, request);
+            RpcResponse rpcResponse = futureResponse.get(timeout, TimeUnit.MILLISECONDS);
+            if (rpcResponse.getErrorMsg() != null) {
+                throw new RpcException(rpcResponse.getErrorMsg());
             }
-        } else if (CallType.FUTURE == callType) {
-            RpcFutureResponse futureResponse = new RpcFutureResponse(invokerFactory, request, null);
-            try {
-                RpcInvokeFuture invokeFuture = new RpcInvokeFuture(futureResponse);
-                RpcInvokeFuture.setFuture(invokeFuture);
-                client.asyncSend(finalAddress, request);
-                return null;
-            } catch (Exception e) {
-                futureResponse.removeInvokerFuture();
-                throw (e instanceof RpcException) ? e : new RpcException(e);
-            }
-
-        } else if (CallType.CALLBACK == callType) {
-            RpcInvokeCallback finalInvokeCallback = invokeCallback;
-            RpcInvokeCallback threadInvokeCallback = RpcInvokeCallback.getCallback();
-            if (threadInvokeCallback != null) {
-                finalInvokeCallback = threadInvokeCallback;
-            }
-            if (finalInvokeCallback == null) {
-                throw new RpcException("rpc RpcInvokeCallback（CallType=" + CallType.CALLBACK.name() + "） cannot be null.");
-            }
-            RpcFutureResponse futureResponse = new RpcFutureResponse(invokerFactory, request, finalInvokeCallback);
-            try {
-                client.asyncSend(finalAddress, request);
-            } catch (Exception e) {
-                futureResponse.removeInvokerFuture();
-                throw (e instanceof RpcException) ? e : new RpcException(e);
-            }
-            return null;
-        } else {
-            throw new RpcException("rpc callType[" + callType + "] invalid");
+            return rpcResponse.getResult();
+        } catch (Exception e) {
+            throw (e instanceof RpcException) ? e : new RpcException(e);
+        } finally {
+            futureResponse.removeInvokerFuture();
         }
     }
 

@@ -1,7 +1,6 @@
 package com.yunus.annotation;
 
 
-import com.yunus.invoker.call.CallType;
 import com.yunus.invoker.route.LoadBalance;
 import com.yunus.net.base.NetEnum;
 import com.yunus.serialize.SerializeEnum;
@@ -23,12 +22,6 @@ public @interface RpcReference {
      */
     NetEnum netType() default NetEnum.NETTY;
 
-    /**
-     * 调用方式
-     *
-     * @return
-     */
-    CallType callType() default CallType.SYNC;
 
     /**
      * 序列化方式

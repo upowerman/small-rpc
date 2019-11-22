@@ -2,11 +2,9 @@ package com.yunus.invoker.reference;
 
 import com.yunus.exception.RpcException;
 import com.yunus.invoker.RpcInvokerFactory;
-import com.yunus.invoker.call.CallType;
 import com.yunus.invoker.route.LoadBalance;
 import com.yunus.net.base.BaseClient;
 import com.yunus.net.base.NetEnum;
-import com.yunus.net.base.RpcInvokeCallback;
 import com.yunus.serialize.BaseSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,7 +20,6 @@ public class RpcReferenceBean {
 
     private NetEnum netType;
     private BaseSerializer serializer;
-    private CallType callType;
     private LoadBalance loadBalance;
 
     private Class<?> iface;
@@ -32,32 +29,26 @@ public class RpcReferenceBean {
 
     private String address;
 
-    private RpcInvokeCallback invokeCallback;
-
     private RpcInvokerFactory invokerFactory;
 
     BaseClient client = null;
 
     public RpcReferenceBean(NetEnum netType,
                             BaseSerializer serializer,
-                            CallType callType,
                             LoadBalance loadBalance,
                             Class<?> iface,
                             String version,
                             long timeout,
                             String address,
-                            RpcInvokeCallback invokeCallback,
                             RpcInvokerFactory invokerFactory) {
 
         this.netType = netType;
         this.serializer = serializer;
-        this.callType = callType;
         this.loadBalance = loadBalance;
         this.iface = iface;
         this.version = version;
         this.timeout = timeout;
         this.address = address;
-        this.invokeCallback = invokeCallback;
         this.invokerFactory = invokerFactory;
 
         // valid
@@ -66,9 +57,6 @@ public class RpcReferenceBean {
         }
         if (this.serializer == null) {
             throw new RpcException("rpc reference serializer missing.");
-        }
-        if (this.callType == null) {
-            throw new RpcException("rpc reference callType missing.");
         }
         if (this.loadBalance == null) {
             throw new RpcException("rpc reference loadBalance missing.");
@@ -124,10 +112,6 @@ public class RpcReferenceBean {
         return invokerFactory;
     }
 
-    public CallType getCallType() {
-        return callType;
-    }
-
     public LoadBalance getLoadBalance() {
         return loadBalance;
     }
@@ -138,10 +122,6 @@ public class RpcReferenceBean {
 
     public String getAddress() {
         return address;
-    }
-
-    public RpcInvokeCallback getInvokeCallback() {
-        return invokeCallback;
     }
 
     public BaseClient getClient() {

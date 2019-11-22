@@ -1,6 +1,5 @@
 package com.yunus.invoker;
 
-import com.yunus.exception.RpcException;
 import com.yunus.net.base.BaseCallback;
 import com.yunus.net.base.RpcFutureResponse;
 import com.yunus.net.base.RpcResponse;
@@ -12,7 +11,8 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * @author gaoyunfeng
@@ -32,8 +32,6 @@ public class RpcInvokerFactory {
      * 服务停止时的回调函数
      */
     private List<BaseCallback> stopCallbackList = new ArrayList<BaseCallback>();
-
-    private ThreadPoolExecutor responseCallbackThreadPool = null;
 
     /**
      * 请求cache
@@ -71,7 +69,6 @@ public class RpcInvokerFactory {
                 }
             }
         }
-        stopCallbackThreadPool();
     }
 
     public void notifyInvokerFuture(String requestId, final RpcResponse response) {
@@ -79,54 +76,9 @@ public class RpcInvokerFactory {
         if (futureResponse == null) {
             return;
         }
-        if (futureResponse.getInvokeCallback() != null) {
-            try {
-                executeResponseCallback(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (response.getErrorMsg() != null) {
-                            futureResponse.getInvokeCallback().onFailure(new RpcException(response.getErrorMsg()));
-                        } else {
-                            futureResponse.getInvokeCallback().onSuccess(response.getResult());
-                        }
-                    }
-                });
-            } catch (Exception e) {
-                logger.error(e.getMessage(), e);
-            }
-        } else {
-            futureResponse.setResponse(response);
-        }
+        futureResponse.setResponse(response);
         // 移除 response
         futureResponsePool.remove(requestId);
-    }
-
-    public void executeResponseCallback(Runnable runnable) {
-        if (responseCallbackThreadPool == null) {
-            synchronized (this) {
-                if (responseCallbackThreadPool == null) {
-                    responseCallbackThreadPool = new ThreadPoolExecutor(
-                            10,
-                            100,
-                            60L,
-                            TimeUnit.SECONDS,
-                            new LinkedBlockingQueue<Runnable>(1000),
-                            new ThreadFactory() {
-                                @Override
-                                public Thread newThread(Runnable r) {
-                                    return new Thread(r, "rpc, RpcInvokerFactory-responseCallbackThreadPool-" + r.hashCode());
-                                }
-                            },
-                            new RejectedExecutionHandler() {
-                                @Override
-                                public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
-                                    throw new RpcException("rpc Invoke Callback Thread pool is EXHAUSTED!");
-                                }
-                            });
-                }
-            }
-        }
-        responseCallbackThreadPool.execute(runnable);
     }
 
     public BaseServiceRegistry getServiceRegistry() {
@@ -143,12 +95,6 @@ public class RpcInvokerFactory {
 
     public void removeInvokerFuture(String requestId) {
         futureResponsePool.remove(requestId);
-    }
-
-    public void stopCallbackThreadPool() {
-        if (responseCallbackThreadPool != null) {
-            responseCallbackThreadPool.shutdown();
-        }
     }
 
     public static RpcInvokerFactory getInstance() {

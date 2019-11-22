@@ -25,7 +25,7 @@ public class RpcInvokerConfig {
     public RpcSpringInvokerFactory JobExecutor() {
         RpcSpringInvokerFactory invokerFactory = new RpcSpringInvokerFactory();
         invokerFactory.setServiceRegistryClass(LocalServiceRegistry.class);
-        HashMap<String, String> params = new HashMap<>();
+        HashMap<String, String> params = new HashMap<>(2);
         params.put(LocalServiceRegistry.DIRECT_ADDRESS, address);
         invokerFactory.setServiceRegistryParam(params);
         return invokerFactory;

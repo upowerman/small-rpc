@@ -61,10 +61,10 @@ public abstract class ConnectClient {
                                  Class<? extends ConnectClient> connectClientImpl,
                                  final RpcReferenceBean rpcReferenceBean) throws Exception {
 
-        ConnectClient clientPool = ConnectClient.getPool(address, connectClientImpl, rpcReferenceBean);
+        ConnectClient connect = ConnectClient.getPool(address, connectClientImpl, rpcReferenceBean);
 
         try {
-            clientPool.send(rpcRequest);
+            connect.send(rpcRequest);
         } catch (Exception e) {
             throw e;
         }
