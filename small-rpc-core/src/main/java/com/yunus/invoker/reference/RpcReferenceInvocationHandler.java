@@ -34,7 +34,7 @@ public class RpcReferenceInvocationHandler implements InvocationHandler {
         Class<?>[] parameterTypes = method.getParameterTypes();
         Object[] parameters = args;
         if (className.equals(Object.class.getName())) {
-            throw new RpcException("rpc proxy class-method not support");
+            throw new RpcException("服务类不支持调用方法");
         }
         String finalAddress = referenceBean.getAddress();
         RpcInvokerFactory invokerFactory = referenceBean.getInvokerFactory();
@@ -43,6 +43,7 @@ public class RpcReferenceInvocationHandler implements InvocationHandler {
         long timeout = referenceBean.getTimeout();
         BaseClient client = referenceBean.getClient();
         if (finalAddress == null || finalAddress.trim().length() == 0) {
+            // 从注册中心获取调用地址
             finalAddress = getBalanceAddress(invokerFactory.getServiceRegistry(), className, version);
         }
         RpcRequest request = new RpcRequest();

@@ -11,26 +11,31 @@ public abstract class BaseServer {
 
     protected static final Logger logger = LoggerFactory.getLogger(BaseServer.class);
 
-
-    private BaseCallback startedCallback;
-    private BaseCallback stopedCallback;
+    /**
+     * 启动服务时的回调类
+     */
+    private BaseCallback startCallback;
+    /**
+     * 停止服务时的回调类
+     */
+    private BaseCallback stopCallback;
 
     /**
      * 设置服务开始以后回调类
      *
-     * @param startedCallback
+     * @param callback
      */
-    public void setStartedCallback(BaseCallback startedCallback) {
-        this.startedCallback = startedCallback;
+    public void setStartCallback(BaseCallback callback) {
+        this.startCallback = callback;
     }
 
     /**
      * 设置服务结束时的回调类
      *
-     * @param stopedCallback
+     * @param callback
      */
-    public void setStopedCallback(BaseCallback stopedCallback) {
-        this.stopedCallback = stopedCallback;
+    public void setStopCallback(BaseCallback callback) {
+        this.stopCallback = callback;
     }
 
 
@@ -45,12 +50,12 @@ public abstract class BaseServer {
     /**
      * 开启以后回调
      */
-    public void onStarted() {
-        if (startedCallback != null) {
+    public void onStart() {
+        if (startCallback != null) {
             try {
-                startedCallback.run();
+                startCallback.run();
             } catch (Exception e) {
-                logger.error(">>>>>>>>>>> rpc-server startedCallback error.", e);
+                logger.error("netty 启动时回调函数执行失败", e);
             }
         }
     }
@@ -65,12 +70,12 @@ public abstract class BaseServer {
     /**
      * 停止时回调
      */
-    public void onStoped() {
-        if (stopedCallback != null) {
+    public void onStop() {
+        if (stopCallback != null) {
             try {
-                stopedCallback.run();
+                stopCallback.run();
             } catch (Exception e) {
-                logger.error(">>>>>>>>>>> rpc-server stopedCallback error.", e);
+                logger.error("netty 停止时回调函数执行失败", e);
             }
         }
     }

@@ -4,7 +4,6 @@ import com.yunus.annotation.RpcService;
 import com.yunus.exception.RpcException;
 import com.yunus.net.base.NetEnum;
 import com.yunus.provider.RpcProviderFactory;
-import com.yunus.registry.BaseServiceRegistry;
 import com.yunus.serialize.BaseSerializer;
 import com.yunus.serialize.SerializeEnum;
 import org.springframework.beans.BeansException;
@@ -22,24 +21,21 @@ import java.util.Map;
  */
 public class RpcSpringProviderFactory extends RpcProviderFactory implements ApplicationContextAware, InitializingBean, DisposableBean {
 
-
+    /**
+     * 默认采用NETTY 通信
+     */
     private String netType = NetEnum.NETTY.name();
+    /**
+     * 默认序列化方式为HESSIAN
+     */
     private String serialize = SerializeEnum.HESSIAN.name();
 
-    private int corePoolSize;
-    private int maxPoolSize;
-
-    private String ip;
-    private int port;
-
-    private Class<? extends BaseServiceRegistry> serviceRegistryClass;
-    private Map<String, String> serviceRegistryParam;
 
     private void prepareConfig() {
         NetEnum netTypeEnum = NetEnum.autoMatch(netType, null);
         SerializeEnum serializeEnum = SerializeEnum.match(serialize, null);
         BaseSerializer serializer = serializeEnum != null ? serializeEnum.getSerializer() : null;
-        super.initConfig(netTypeEnum, serializer, corePoolSize, maxPoolSize, ip, port, serviceRegistryClass, serviceRegistryParam);
+        super.initConfig(netTypeEnum, serializer);
     }
 
     /**
@@ -55,7 +51,7 @@ public class RpcSpringProviderFactory extends RpcProviderFactory implements Appl
         if (serviceBeanMap != null && serviceBeanMap.size() > 0) {
             for (Object serviceBean : serviceBeanMap.values()) {
                 if (serviceBean.getClass().getInterfaces().length == 0) {
-                    throw new RpcException("rpc, service(RpcService) must inherit interface.");
+                    throw new RpcException("服务提供类必须是接口");
                 }
                 RpcService RpcService = serviceBean.getClass().getAnnotation(RpcService.class);
                 String iface = serviceBean.getClass().getInterfaces()[0].getName();
@@ -76,36 +72,4 @@ public class RpcSpringProviderFactory extends RpcProviderFactory implements Appl
         super.stop();
     }
 
-    public void setNetType(String netType) {
-        this.netType = netType;
-    }
-
-    public void setSerialize(String serialize) {
-        this.serialize = serialize;
-    }
-
-
-    public void setCorePoolSize(int corePoolSize) {
-        this.corePoolSize = corePoolSize;
-    }
-
-    public void setMaxPoolSize(int maxPoolSize) {
-        this.maxPoolSize = maxPoolSize;
-    }
-
-    public void setIp(String ip) {
-        this.ip = ip;
-    }
-
-    public void setPort(int port) {
-        this.port = port;
-    }
-
-    public void setServiceRegistryClass(Class<? extends BaseServiceRegistry> serviceRegistryClass) {
-        this.serviceRegistryClass = serviceRegistryClass;
-    }
-
-    public void setServiceRegistryParam(Map<String, String> serviceRegistryParam) {
-        this.serviceRegistryParam = serviceRegistryParam;
-    }
 }

@@ -40,14 +40,12 @@ public class NettyServer extends BaseServer {
     @Override
     public void stop() throws Exception {
 
-        // destroy server thread
         if (thread != null && thread.isAlive()) {
             thread.interrupt();
         }
-
-        // on stop
-        onStoped();
-        logger.info(">>>>>>>>>>> rpc remoting server destroy success.");
+        // 执行回调函数
+        onStop();
+        logger.info("RPC服务启动成功");
     }
 
     class BootStrap implements Runnable {
@@ -68,7 +66,6 @@ public class NettyServer extends BaseServer {
             EventLoopGroup workerGroup = new NioEventLoopGroup();
 
             try {
-                // start server
                 ServerBootstrap bootstrap = new ServerBootstrap();
                 bootstrap.group(bossGroup, workerGroup)
                         .channel(NioServerSocketChannel.class)
@@ -76,6 +73,7 @@ public class NettyServer extends BaseServer {
                             @Override
                             public void initChannel(SocketChannel channel) throws Exception {
                                 channel.pipeline()
+                                        // 添加心跳handler
                                         .addLast(new IdleStateHandler(0, 0, Beat.BEAT_INTERVAL * 3, TimeUnit.SECONDS))
                                         .addLast(new NettyDecoder(RpcRequest.class, rpcProviderFactory.getSerializer()))
                                         .addLast(new NettyEncoder(RpcResponse.class, rpcProviderFactory.getSerializer()))
@@ -85,23 +83,24 @@ public class NettyServer extends BaseServer {
                         .childOption(ChannelOption.TCP_NODELAY, true)
                         .childOption(ChannelOption.SO_KEEPALIVE, true);
 
-                // bind
+                // 绑定端口
                 ChannelFuture future = bootstrap.bind(rpcProviderFactory.getPort()).sync();
 
-                logger.info(">>>>>>>>>>> rpc remoting server start success, nettype = {}, port = {}", NettyServer.class.getName(), rpcProviderFactory.getPort());
-                onStarted();
+                logger.info("服务启动成功 服务类型 = {}, 端口 = {}", NettyServer.class.getName(), rpcProviderFactory.getPort());
+                // 启动前执行回调函数
+                onStart();
 
-                // wait util stop
                 future.channel().closeFuture().sync();
 
             } catch (Exception e) {
                 if (e instanceof InterruptedException) {
-                    logger.info(">>>>>>>>>>> rpc remoting server stop.");
+                    logger.info("服务停止");
                 } else {
-                    logger.error(">>>>>>>>>>> rpc remoting server error.", e);
+                    logger.error("服务错误", e);
                 }
             } finally {
                 try {
+                    // 关闭线程池
                     serverHandlerPool.shutdown();
                 } catch (Exception e) {
                     logger.error(e.getMessage(), e);
