@@ -47,42 +47,42 @@
 
        4. invoker方 配置如下：
        
-                        @Configuration
-                        public class RpcInvokerConfig {
-                            private Logger logger = LoggerFactory.getLogger(RpcInvokerConfig.class);
+         @Configuration
+         public class RpcInvokerConfig {
+             private Logger logger = LoggerFactory.getLogger(RpcInvokerConfig.class);
 
-                            // 指定提供方地址
-                            @Value("${small-rpc.registry.address}")
-                            private String address;
+             // 指定提供方地址
+             @Value("${small-rpc.registry.address}")
+             private String address;
 
-                            @Bean
-                            public RpcSpringInvokerFactory JobExecutor() {
-                                 RpcSpringInvokerFactory invokerFactory = new RpcSpringInvokerFactory();
-                                 invokerFactory.setServiceRegistryClass(LocalServiceRegistry.class);
-                                 HashMap<String, String> params = new HashMap<>();
-                                 // 指定提供方地址
-                                 params.put(LocalServiceRegistry.DIRECT_ADDRESS, address);
-                                 invokerFactory.setServiceRegistryParam(params);
-                                 return invokerFactory;
-                            }
-                        }
+             @Bean
+             public RpcSpringInvokerFactory JobExecutor() {
+                  RpcSpringInvokerFactory invokerFactory = new RpcSpringInvokerFactory();
+                  invokerFactory.setServiceRegistryClass(LocalServiceRegistry.class);
+                  HashMap<String, String> params = new HashMap<>();
+                  // 指定提供方地址
+                  params.put(LocalServiceRegistry.DIRECT_ADDRESS, address);
+                  invokerFactory.setServiceRegistryParam(params);
+                  return invokerFactory;
+             }
+         }
                         
         5. 服务类需要用@RpcService 注解（服务了必须在ioc容器中）
         
         6. 消费方引用是需要注解@RpcReference 例如：
         
-                @RestController
-                @RequestMapping("/")
-                public class HelloController {
+           @RestController
+           @RequestMapping("/")
+           public class HelloController {
 
-                     @RpcReference
-                     private HelloService helloService;
+                @RpcReference
+                private HelloService helloService;
 
-                     @GetMapping("/hello")
-                     public HelloDTO hello(String name) {
-                          return helloService.hello(name);
-                     }
+                @GetMapping("/hello")
+                public HelloDTO hello(String name) {
+                     return helloService.hello(name);
                 }
+           }
 
 ## 参考资料
      1.    https://github.com/TFdream/mango
