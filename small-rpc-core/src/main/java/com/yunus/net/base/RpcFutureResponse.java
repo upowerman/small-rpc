@@ -19,7 +19,7 @@ public class RpcFutureResponse implements Future<RpcResponse> {
 
     private boolean done = false;
 
-    private Object lock = new Object();
+    private final Object lock = new Object();
 
 
     public RpcFutureResponse(final RpcInvokerFactory invokerFactory, RpcRequest request) {

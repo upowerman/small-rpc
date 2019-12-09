@@ -15,12 +15,12 @@ import java.util.concurrent.ConcurrentMap;
 public class RpcLoadBalanceRoundStrategy extends AbstractRpcLoadBalance {
 
     private ConcurrentMap<String, Integer> routeCountEachJob = new ConcurrentHashMap<String, Integer>();
-    private long CACHE_VALID_TIME = 0;
+    private long cacheValidTime = 0;
 
-    private int count(String serviceKey) {
-        if (System.currentTimeMillis() > CACHE_VALID_TIME) {
+    private Integer count(String serviceKey) {
+        if (System.currentTimeMillis() > cacheValidTime) {
             routeCountEachJob.clear();
-            CACHE_VALID_TIME = System.currentTimeMillis() + 24 * 60 * 60 * 1000;
+            cacheValidTime = System.currentTimeMillis() + 24 * 60 * 60 * 1000;
         }
         Integer count = routeCountEachJob.get(serviceKey);
         // 初始化时主动Random一次，缓解首次压力
@@ -31,9 +31,8 @@ public class RpcLoadBalanceRoundStrategy extends AbstractRpcLoadBalance {
 
     @Override
     public String route(String serviceKey, TreeSet<String> addressSet) {
-        String[] addressArr = addressSet.toArray(new String[addressSet.size()]);
-
-        String finalAddress = addressArr[count(serviceKey) % addressArr.length];
-        return finalAddress;
+        String[] addressArr = addressSet.toArray(new String[0]);
+        return addressArr[count(serviceKey) % addressArr.length];
     }
+
 }

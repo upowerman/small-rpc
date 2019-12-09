@@ -17,8 +17,8 @@ import java.util.regex.Pattern;
 public class IpUtil {
     private static final Logger logger = LoggerFactory.getLogger(IpUtil.class);
 
-    private static final String ANYHOST = "0.0.0.0";
-    private static final String LOCALHOST = "127.0.0.1";
+    private static final String ANY_HOST = "0.0.0.0";
+    private static final String LOCAL_HOST = "127.0.0.1";
     private static final Pattern IP_PATTERN = Pattern.compile("\\d{1,3}(\\.\\d{1,3}){3,5}$");
 
     private static volatile InetAddress LOCAL_ADDRESS = null;
@@ -34,8 +34,8 @@ public class IpUtil {
         }
         String name = address.getHostAddress();
         return (name != null
-                && !ANYHOST.equals(name)
-                && !LOCALHOST.equals(name)
+                && !ANY_HOST.equals(name)
+                && !LOCAL_HOST.equals(name)
                 && IP_PATTERN.matcher(name).matches());
     }
 

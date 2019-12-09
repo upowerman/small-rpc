@@ -21,14 +21,14 @@ public enum LoadBalance {
 
     public final AbstractRpcLoadBalance rpcInvokerRouter;
 
-    private LoadBalance(AbstractRpcLoadBalance rpcInvokerRouter) {
+    LoadBalance(AbstractRpcLoadBalance rpcInvokerRouter) {
         this.rpcInvokerRouter = rpcInvokerRouter;
     }
 
 
     public static LoadBalance match(String name, LoadBalance defaultRouter) {
         for (LoadBalance item : LoadBalance.values()) {
-            if (item.equals(name)) {
+            if (item.name().equals(name)) {
                 return item;
             }
         }

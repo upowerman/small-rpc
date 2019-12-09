@@ -45,8 +45,7 @@ public class HessianSerializer extends BaseSerializer {
         ByteArrayInputStream is = new ByteArrayInputStream(bytes);
         HessianInput hi = new HessianInput(is);
         try {
-            Object result = hi.readObject();
-            return result;
+            return hi.readObject();
         } catch (IOException e) {
             throw new RpcException(e);
         } finally {

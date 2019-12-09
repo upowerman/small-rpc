@@ -14,9 +14,8 @@ public class RpcLoadBalanceRandomStrategy extends AbstractRpcLoadBalance {
 
     @Override
     public String route(String serviceKey, TreeSet<String> addressSet) {
-        String[] addressArr = addressSet.toArray(new String[addressSet.size()]);
-        String finalAddress = addressArr[random.nextInt(addressSet.size())];
-        return finalAddress;
+        String[] addressArr = addressSet.toArray(new String[0]);
+        return addressArr[random.nextInt(addressSet.size())];
     }
 
 }

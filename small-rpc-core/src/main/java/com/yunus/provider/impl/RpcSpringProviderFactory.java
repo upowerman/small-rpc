@@ -53,9 +53,9 @@ public class RpcSpringProviderFactory extends RpcProviderFactory implements Appl
                 if (serviceBean.getClass().getInterfaces().length == 0) {
                     throw new RpcException("服务提供类必须是接口");
                 }
-                RpcService RpcService = serviceBean.getClass().getAnnotation(RpcService.class);
+                RpcService rpcService = serviceBean.getClass().getAnnotation(RpcService.class);
                 String iface = serviceBean.getClass().getInterfaces()[0].getName();
-                String version = RpcService.version();
+                String version = rpcService.version();
                 super.addService(iface, version, serviceBean);
             }
         }
