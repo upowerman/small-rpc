@@ -8,6 +8,8 @@ import com.yunus.serialize.SerializeEnum;
 import java.lang.annotation.*;
 
 /**
+ * 引入调用发接口注解
+ *
  * @author gaoyunfeng
  */
 @Target({ElementType.FIELD})

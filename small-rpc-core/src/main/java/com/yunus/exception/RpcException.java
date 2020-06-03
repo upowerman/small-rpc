@@ -1,6 +1,8 @@
 package com.yunus.exception;
 
 /**
+ * 统一的异常类
+ *
  * @author gaoyunfeng
  */
 public class RpcException extends RuntimeException {
