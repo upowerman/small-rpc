@@ -3,12 +3,12 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
-        <artifactId>samll-rpc-simple</artifactId>
+        <artifactId>small-rpc-simple</artifactId>
         <groupId>com.yunus</groupId>
-        <version>1.0</version>
+        <version>${revision}</version>
+        <relativePath>../pom.xml</relativePath>
     </parent>
     <modelVersion>4.0.0</modelVersion>
-
     <artifactId>small-rpc-sample-springboot-client</artifactId>
 
     <dependencies>
@@ -24,7 +24,7 @@
         <dependency>
             <groupId>com.yunus</groupId>
             <artifactId>small-rpc-core</artifactId>
-            <version>${project.parent.version}</version>
+            <version>${revision}</version>
         </dependency>
         <dependency>
             <groupId>com.yunus</groupId>
@@ -39,7 +39,7 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
-                <version>${spring-boot.version}</version>
+                <version>1.5.22.RELEASE</version>
                 <executions>
                     <execution>
                         <goals>
