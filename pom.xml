@@ -6,16 +6,12 @@
 
     <groupId>com.yunus</groupId>
     <artifactId>small-rpc</artifactId>
-    <version>1.0</version>
+    <version>${revision}</version>
 
     <packaging>pom</packaging>
 
-    <modules>
-        <module>small-rpc-core</module>
-        <module>small-rpc-simple</module>
-    </modules>
-
     <properties>
+        <revision>1.0-SNAPSHOT</revision>
         <netty-all.version>4.1.39.Final</netty-all.version>
         <spring-context.version>5.1.9.RELEASE</spring-context.version>
         <spring.version>4.3.24.RELEASE</spring.version>
@@ -26,6 +22,12 @@
         <spring-boot.version>1.5.22.RELEASE</spring-boot.version>
     </properties>
 
+    <modules>
+        <module>small-rpc-core</module>
+        <module>small-rpc-simple</module>
+    </modules>
+
+
     <dependencyManagement>
         <dependencies>
             <dependency>
@@ -33,49 +35,29 @@
                 <artifactId>spring-beans</artifactId>
                 <version>${spring.version}</version>
                 <scope>provided</scope>
-                <exclusions>
-                    <exclusion>
-                        <groupId>*</groupId>
-                        <artifactId>*</artifactId>
-                    </exclusion>
-                </exclusions>
             </dependency>
             <dependency>
                 <groupId>org.springframework</groupId>
                 <artifactId>spring-core</artifactId>
                 <version>${spring.version}</version>
                 <scope>provided</scope>
-                <exclusions>
-                    <exclusion>
-                        <groupId>*</groupId>
-                        <artifactId>*</artifactId>
-                    </exclusion>
-                </exclusions>
             </dependency>
             <dependency>
                 <groupId>org.springframework</groupId>
                 <artifactId>spring-context</artifactId>
                 <version>${spring.version}</version>
                 <scope>provided</scope>
-                <exclusions>
-                    <exclusion>
-                        <groupId>*</groupId>
-                        <artifactId>*</artifactId>
-                    </exclusion>
-                </exclusions>
             </dependency>
             <dependency>
                 <groupId>io.netty</groupId>
                 <artifactId>netty-all</artifactId>
                 <version>${netty-all.version}</version>
             </dependency>
-            <!-- https://mvnrepository.com/artifact/com.caucho/hessian -->
             <dependency>
                 <groupId>com.caucho</groupId>
                 <artifactId>hessian</artifactId>
                 <version>${hessian.version}</version>
             </dependency>
-            <!-- slf4j -->
             <dependency>
                 <groupId>org.slf4j</groupId>
                 <artifactId>slf4j-api</artifactId>
@@ -88,6 +70,19 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
+
+    <repositories>
+        <repository>
+            <id>central</id>
+            <url>https://maven.aliyun.com/repository/central</url>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
 
     <build>
         <plugins>
