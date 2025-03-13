@@ -4,12 +4,19 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
         <artifactId>small-rpc-simple</artifactId>
-        <groupId>com.yunus</groupId>
-        <version>${revision}</version>
+        <groupId>io.github.upowerman</groupId>
+        <version>1.0.0</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <modelVersion>4.0.0</modelVersion>
     <artifactId>small-rpc-sample-springboot-client</artifactId>
+
+    <properties>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
+        <small-rpc-core.version>1.0.0</small-rpc-core.version>
+        <spring-boot.version>1.5.22.RELEASE</spring-boot.version>
+    </properties>
 
     <dependencies>
         <dependency>
@@ -22,12 +29,12 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>com.yunus</groupId>
+            <groupId>io.github.upowerman</groupId>
             <artifactId>small-rpc-core</artifactId>
-            <version>${revision}</version>
+            <version>${small-rpc-core.version}</version>
         </dependency>
         <dependency>
-            <groupId>com.yunus</groupId>
+            <groupId>io.github.upowerman</groupId>
             <artifactId>small-rpc-sample-springboot-api</artifactId>
             <version>${project.parent.version}</version>
         </dependency>
@@ -39,7 +46,7 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
-                <version>1.5.22.RELEASE</version>
+                <version>${spring-boot.version}</version>
                 <executions>
                     <execution>
                         <goals>

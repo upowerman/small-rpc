@@ -5,14 +5,19 @@
 
     <parent>
         <artifactId>small-rpc-simple</artifactId>
-        <groupId>com.yunus</groupId>
-        <version>${revision}</version>
+        <groupId>io.github.upowerman</groupId>
+        <version>1.0.0</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>small-rpc-sample-springboot-api</artifactId>
     <packaging>jar</packaging>
+
+    <properties>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
+    </properties>
 
 
 </project>

@@ -2,15 +2,12 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <parent>
-        <artifactId>small-rpc</artifactId>
-        <groupId>com.yunus</groupId>
-        <version>${revision}</version>
-        <relativePath>../pom.xml</relativePath>
-    </parent>
 
     <modelVersion>4.0.0</modelVersion>
+
     <artifactId>small-rpc-simple</artifactId>
+    <groupId>io.github.upowerman</groupId>
+    <version>1.0.0</version>
 
     <packaging>pom</packaging>
 
@@ -19,6 +16,19 @@
         <module>small-rpc-sample-springboot-client</module>
         <module>small-rpc-sample-springboot-server</module>
     </modules>
+
+    <properties>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
+        <netty-all.version>4.1.39.Final</netty-all.version>
+        <spring-context.version>5.1.9.RELEASE</spring-context.version>
+        <spring.version>4.3.24.RELEASE</spring.version>
+        <hessian.version>4.0.62</hessian.version>
+        <slf4j-api.version>1.7.28</slf4j-api.version>
+        <spring.version>4.3.24.RELEASE</spring.version>
+        <spring-boot.version>1.5.22.RELEASE</spring-boot.version>
+    </properties>
+
 
     <!-- spring boot 依赖 -->
     <dependencyManagement>
@@ -30,7 +40,58 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+            <dependency>
+                <groupId>org.springframework</groupId>
+                <artifactId>spring-beans</artifactId>
+                <version>${spring.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework</groupId>
+                <artifactId>spring-core</artifactId>
+                <version>${spring.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework</groupId>
+                <artifactId>spring-context</artifactId>
+                <version>${spring.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-all</artifactId>
+                <version>${netty-all.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.caucho</groupId>
+                <artifactId>hessian</artifactId>
+                <version>${hessian.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-api</artifactId>
+                <version>${slf4j-api.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-log4j12</artifactId>
+                <version>${slf4j-api.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
+
+    <repositories>
+        <repository>
+            <id>central</id>
+            <url>https://maven.aliyun.com/repository/central</url>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
 
 </project>
