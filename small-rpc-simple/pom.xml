@@ -82,12 +82,12 @@
     <repositories>
         <repository>
             <id>central</id>
-            <url>https://maven.aliyun.com/repository/central</url>
+            <url>https://repo1.maven.org/maven2</url>
             <releases>
                 <enabled>true</enabled>
             </releases>
             <snapshots>
-                <enabled>true</enabled>
+                <enabled>false</enabled>
             </snapshots>
         </repository>
     </repositories>

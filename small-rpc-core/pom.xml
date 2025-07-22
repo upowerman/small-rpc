@@ -130,6 +130,8 @@
                         </goals>
                         <configuration>
                             <additionalparam>-Xdoclint:none</additionalparam>
+                            <failOnError>false</failOnError>
+                            <quiet>true</quiet>
                         </configuration>
                     </execution>
                 </executions>
