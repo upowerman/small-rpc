@@ -6,6 +6,8 @@ import io.github.upowerman.net.base.NetEnum;
 import io.github.upowerman.provider.RpcProviderFactory;
 import io.github.upowerman.serialize.BaseSerializer;
 import io.github.upowerman.serialize.SerializeEnum;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
@@ -20,6 +22,8 @@ import java.util.Map;
  * @author gaoyunfeng
  */
 public class RpcSpringProviderFactory extends RpcProviderFactory implements ApplicationContextAware, InitializingBean, DisposableBean {
+
+    private static final Logger logger = LoggerFactory.getLogger(RpcSpringProviderFactory.class);
 
     /**
      * 默认采用NETTY 通信
@@ -46,18 +50,40 @@ public class RpcSpringProviderFactory extends RpcProviderFactory implements Appl
      */
     @Override
     public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
+        if (applicationContext == null) {
+            logger.warn("ApplicationContext is null, no RPC services will be registered");
+            return;
+        }
 
         Map<String, Object> serviceBeanMap = applicationContext.getBeansWithAnnotation(RpcService.class);
-        if (serviceBeanMap != null && serviceBeanMap.size() > 0) {
-            for (Object serviceBean : serviceBeanMap.values()) {
-                if (serviceBean.getClass().getInterfaces().length == 0) {
-                    throw new RpcException("服务提供类必须是接口");
-                }
-                RpcService rpcService = serviceBean.getClass().getAnnotation(RpcService.class);
-                String iface = serviceBean.getClass().getInterfaces()[0].getName();
-                String version = rpcService.version();
-                super.addService(iface, version, serviceBean);
+        if (serviceBeanMap == null || serviceBeanMap.isEmpty()) {
+            logger.info("No RPC services found with @RpcService annotation");
+            return;
+        }
+
+        logger.info("Found {} RPC services to register", serviceBeanMap.size());
+        for (Map.Entry<String, Object> entry : serviceBeanMap.entrySet()) {
+            Object serviceBean = entry.getValue();
+            if (serviceBean == null) {
+                logger.warn("Skipping null service bean for key: {}", entry.getKey());
+                continue;
             }
+            
+            Class<?>[] interfaces = serviceBean.getClass().getInterfaces();
+            if (interfaces.length == 0) {
+                throw new RpcException("服务提供类必须实现接口: " + serviceBean.getClass().getName());
+            }
+            
+            RpcService rpcService = serviceBean.getClass().getAnnotation(RpcService.class);
+            if (rpcService == null) {
+                logger.warn("No @RpcService annotation found on {}, skipping", serviceBean.getClass().getName());
+                continue;
+            }
+            
+            String iface = interfaces[0].getName();
+            String version = rpcService.version();
+            logger.info("Registering RPC service: {} version: {}", iface, version);
+            super.addService(iface, version, serviceBean);
         }
     }
 

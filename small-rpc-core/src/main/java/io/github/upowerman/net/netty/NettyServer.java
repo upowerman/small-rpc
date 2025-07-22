@@ -39,13 +39,19 @@ public class NettyServer extends BaseServer {
 
     @Override
     public void stop() throws Exception {
-
         if (thread != null && thread.isAlive()) {
             thread.interrupt();
+            try {
+                // Wait for graceful shutdown
+                thread.join(5000);
+            } catch (InterruptedException e) {
+                logger.warn("Interrupted while waiting for server thread to stop");
+                Thread.currentThread().interrupt();
+            }
         }
         // 执行回调函数
         onStop();
-        logger.info("RPC服务启动成功");
+        logger.info("RPC服务停止成功");
     }
 
     class BootStrap implements Runnable {
@@ -62,8 +68,8 @@ public class NettyServer extends BaseServer {
                     NettyServer.class.getSimpleName(),
                     rpcProviderFactory.getCorePoolSize(),
                     rpcProviderFactory.getMaxPoolSize());
-            EventLoopGroup bossGroup = new NioEventLoopGroup();
-            EventLoopGroup workerGroup = new NioEventLoopGroup();
+            EventLoopGroup bossGroup = new NioEventLoopGroup(1); // Use single thread for boss group
+            EventLoopGroup workerGroup = new NioEventLoopGroup(); // Use default threads for worker group
 
             try {
                 ServerBootstrap bootstrap = new ServerBootstrap();
@@ -81,7 +87,9 @@ public class NettyServer extends BaseServer {
                             }
                         })
                         .childOption(ChannelOption.TCP_NODELAY, true)
-                        .childOption(ChannelOption.SO_KEEPALIVE, true);
+                        .childOption(ChannelOption.SO_KEEPALIVE, true)
+                        .childOption(ChannelOption.SO_REUSEADDR, true)
+                        .option(ChannelOption.SO_BACKLOG, 1024);
 
                 // 绑定端口
                 ChannelFuture future = bootstrap.bind(rpcProviderFactory.getPort()).sync();
@@ -99,18 +107,35 @@ public class NettyServer extends BaseServer {
                     logger.error("服务错误", e);
                 }
             } finally {
-                try {
-                    // 关闭线程池
+                // Graceful shutdown with timeout
+                shutdownGracefully(serverHandlerPool, workerGroup, bossGroup);
+            }
+        }
+
+        private void shutdownGracefully(ThreadPoolExecutor serverHandlerPool, EventLoopGroup workerGroup, EventLoopGroup bossGroup) {
+            try {
+                // Shutdown thread pool first
+                if (serverHandlerPool != null) {
                     serverHandlerPool.shutdown();
-                } catch (Exception e) {
-                    logger.error(e.getMessage(), e);
+                    if (!serverHandlerPool.awaitTermination(10, TimeUnit.SECONDS)) {
+                        logger.warn("Server handler pool did not terminate gracefully, forcing shutdown");
+                        serverHandlerPool.shutdownNow();
+                    }
                 }
-                try {
-                    workerGroup.shutdownGracefully();
-                    bossGroup.shutdownGracefully();
-                } catch (Exception e) {
-                    logger.error(e.getMessage(), e);
+            } catch (Exception e) {
+                logger.error("Error shutting down server handler pool", e);
+            }
+
+            try {
+                // Shutdown event loop groups
+                if (workerGroup != null) {
+                    workerGroup.shutdownGracefully(0, 10, TimeUnit.SECONDS);
                 }
+                if (bossGroup != null) {
+                    bossGroup.shutdownGracefully(0, 10, TimeUnit.SECONDS);
+                }
+            } catch (Exception e) {
+                logger.error("Error shutting down event loop groups", e);
             }
         }
     }
