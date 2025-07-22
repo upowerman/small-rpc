@@ -36,7 +36,7 @@ public class NettyConnectClient extends ConnectClient {
         String host = (String) array[0];
         int port = (int) array[1];
 
-        this.group = new NioEventLoopGroup();
+        this.group = new NioEventLoopGroup(1); // Use single thread for client
         Bootstrap bootstrap = new Bootstrap();
         bootstrap.group(group)
                 .channel(NioSocketChannel.class)
@@ -52,12 +52,19 @@ public class NettyConnectClient extends ConnectClient {
                 })
                 .option(ChannelOption.TCP_NODELAY, true)
                 .option(ChannelOption.SO_KEEPALIVE, true)
-                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 10000);
-        this.channel = bootstrap.connect(host, port).sync().channel();
-
-        if (!isValidate()) {
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 10000)
+                .option(ChannelOption.SO_REUSEADDR, true);
+        
+        try {
+            this.channel = bootstrap.connect(host, port).sync().channel();
+            
+            if (!isValidate()) {
+                close();
+                throw new RuntimeException("Failed to establish valid connection to " + address);
+            }
+        } catch (Exception e) {
             close();
-            return;
+            throw new RuntimeException("Failed to connect to " + address, e);
         }
     }
 
@@ -72,11 +79,22 @@ public class NettyConnectClient extends ConnectClient {
 
     @Override
     public void close() {
-        if (this.channel != null && this.channel.isActive()) {
-            this.channel.close();
+        try {
+            if (this.channel != null && this.channel.isActive()) {
+                this.channel.close().sync();
+            }
+        } catch (Exception e) {
+            // Log but don't throw during cleanup
+            System.err.println("Error closing channel: " + e.getMessage());
         }
-        if (this.group != null && !this.group.isShutdown()) {
-            this.group.shutdownGracefully();
+        
+        try {
+            if (this.group != null && !this.group.isShutdown()) {
+                this.group.shutdownGracefully(0, 5, TimeUnit.SECONDS);
+            }
+        } catch (Exception e) {
+            // Log but don't throw during cleanup
+            System.err.println("Error shutting down event loop group: " + e.getMessage());
         }
     }
 
