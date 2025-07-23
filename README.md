@@ -7,7 +7,7 @@
 
 ## 描述
 
-Small-RPC 是一款基于 Netty + Hessian 的精简版 RPC 框架，专为学习和理解 RPC 原理而设计。
+Small-RPC 是一款基于 Netty + Hessian + Redis(注册中心) 的精简版 RPC 框架，专为学习和理解 RPC 原理而设计。
 
 ⚠️ **注意**: 该框架仅适合学习使用，未经生产环境验证。
 
@@ -20,13 +20,14 @@ Small-RPC 是一款基于 Netty + Hessian 的精简版 RPC 框架，专为学习
 - 🛡️ **资源管理**: 优化的线程池和连接管理
 - 📊 **监控友好**: 可观测的线程命名和错误处理
 
-## 最新优化 (v1.0.0+)
+## 最新优化 (v1.1.0)
 
 ### 🔧 依赖更新
 - **Netty**: 4.1.39 → 4.1.108 (最新稳定版)
 - **Spring**: 4.3.24 → 5.3.39 (安全更新)
 - **Spring Boot**: 1.5.22 → 2.7.18 (LTS 版本)
 - **Maven 插件**: 更新至最新版本
+- **[Redis: 注册中心](https://github.com/upowerman/small-rpc/blob/master/Redis-Registry-Guide.md)**
 
 ### ⚡ 性能优化
 - **线程池增强**: 更好的命名和监控能力
