@@ -43,7 +43,7 @@ Small-RPC 是一款基于 Netty + Hessian + Redis(注册中心) 的精简版 RPC
 
 ## 架构简图
 
-![架构图](pic/first.png)
+![架构图](pic/first.jpg)
 
 ## 工程结构
 
