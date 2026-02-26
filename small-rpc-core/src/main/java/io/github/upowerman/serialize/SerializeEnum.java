@@ -14,7 +14,7 @@ public enum SerializeEnum {
      */
     HESSIAN(HessianSerializer.class);
 
-    private Class<? extends BaseSerializer> serializerClass;
+    private final Class<? extends BaseSerializer> serializerClass;
 
     private SerializeEnum(Class<? extends BaseSerializer> serializerClass) {
         this.serializerClass = serializerClass;
@@ -22,7 +22,7 @@ public enum SerializeEnum {
 
     public BaseSerializer getSerializer() {
         try {
-            return serializerClass.newInstance();
+            return serializerClass.getDeclaredConstructor().newInstance();
         } catch (Exception e) {
             throw new RpcException(e);
         }

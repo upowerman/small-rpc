@@ -51,7 +51,7 @@ public class RpcInvokerFactory {
 
     public void start() throws Exception {
         if (serviceRegistryClass != null) {
-            serviceRegistry = serviceRegistryClass.newInstance();
+            serviceRegistry = serviceRegistryClass.getDeclaredConstructor().newInstance();
             serviceRegistry.start(serviceRegistryParam);
         }
     }
