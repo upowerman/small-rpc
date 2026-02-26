@@ -31,7 +31,7 @@ public class LocalServiceRegistry extends BaseServiceRegistry {
     public void start(Map<String, String> param) {
         directAddress = new TreeSet<String>();
         String address = param.get(DIRECT_ADDRESS);
-        if(!StringUtils.isEmpty(address)){
+        if (!StringUtils.isEmpty(address)) {
             directAddress.add(address);
         }
     }
@@ -56,7 +56,7 @@ public class LocalServiceRegistry extends BaseServiceRegistry {
 
     @Override
     public Map<String, TreeSet<String>> discovery(Set<String> keys) {
-        if (keys == null || keys.size() == 0) {
+        if (keys == null || keys.isEmpty()) {
             return null;
         }
         Map<String, TreeSet<String>> registryDataTmp = new HashMap<String, TreeSet<String>>();

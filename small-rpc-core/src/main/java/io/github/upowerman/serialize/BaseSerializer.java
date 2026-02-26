@@ -11,7 +11,7 @@ public abstract class BaseSerializer {
      *
      * @param obj 序列化类
      * @param <T> 泛型
-     * @return
+     * @return 二进制数组
      */
     public abstract <T> byte[] serialize(T obj);
 
@@ -21,7 +21,7 @@ public abstract class BaseSerializer {
      * @param bytes 二进制数组
      * @param clazz 序列化成的类
      * @param <T>   泛型
-     * @return
+     * @return 反序列化对象
      */
     public abstract <T> Object deserialize(byte[] bytes, Class<T> clazz);
 

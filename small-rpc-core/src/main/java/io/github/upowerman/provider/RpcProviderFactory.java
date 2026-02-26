@@ -99,16 +99,16 @@ public class RpcProviderFactory {
 
     public void start() throws Exception {
         serviceAddress = IpUtil.getIpPort(this.ip, port);
-        server = netType.serverClass.newInstance();
+        server = netType.serverClass.getDeclaredConstructor().newInstance();
         // 设置开始 回调函数
         server.setStartCallback(new BaseCallback() {
             @Override
             public void run() throws Exception {
                 // 开始注册
                 if (serviceRegistryClass != null) {
-                    serviceRegistry = serviceRegistryClass.newInstance();
+                    serviceRegistry = serviceRegistryClass.getDeclaredConstructor().newInstance();
                     serviceRegistry.start(serviceRegistryParam);
-                    if (serviceData.size() > 0) {
+                    if (!serviceData.isEmpty()) {
                         // 把服务类注册到注册中心
                         serviceRegistry.registry(serviceData.keySet(), serviceAddress);
                     }
@@ -120,7 +120,7 @@ public class RpcProviderFactory {
             public void run() {
                 // 停止服务时，移除注册中心中的服务
                 if (serviceRegistry != null) {
-                    if (serviceData.size() > 0) {
+                    if (!serviceData.isEmpty()) {
                         serviceRegistry.remove(serviceData.keySet(), serviceAddress);
                     }
                     serviceRegistry.stop();
@@ -183,8 +183,9 @@ public class RpcProviderFactory {
             return rpcResponse;
         }
 
-        // 判断时候超过间隔时间
-        if (System.currentTimeMillis() - rpcRequest.getCreateMillisTime() > 3 * 60 * 1000) {
+        // 判断是否超过间隔时间（3分钟）
+        long requestTimeoutMillis = 3 * 60 * 1000L;
+        if (System.currentTimeMillis() - rpcRequest.getCreateMillisTime() > requestTimeoutMillis) {
             rpcResponse.setErrorMsg("发送请求到执行超过限制时间");
             return rpcResponse;
         }

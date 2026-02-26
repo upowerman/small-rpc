@@ -75,9 +75,9 @@ public class RpcReferenceBean {
 
     private void initClient() {
         try {
-            client = netType.clientClass.newInstance();
+            client = netType.clientClass.getDeclaredConstructor().newInstance();
             client.init(this);
-        } catch (InstantiationException | IllegalAccessException e) {
+        } catch (Exception e) {
             throw new RpcException(e);
         }
     }

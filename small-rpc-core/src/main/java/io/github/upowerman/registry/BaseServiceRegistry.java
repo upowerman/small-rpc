@@ -47,7 +47,7 @@ public abstract class BaseServiceRegistry {
      * 发现服务
      *
      * @param keys 服务类key
-     * @return
+     * @return service 服务地址列表
      */
     public abstract Map<String, TreeSet<String>> discovery(Set<String> keys);
 

@@ -84,8 +84,7 @@ public class NettyConnectClient extends ConnectClient {
                 this.channel.close().sync();
             }
         } catch (Exception e) {
-            // Log but don't throw during cleanup
-            System.err.println("Error closing channel: " + e.getMessage());
+            logger.error("Error closing channel: {}", e.getMessage(), e);
         }
         
         try {
@@ -93,8 +92,7 @@ public class NettyConnectClient extends ConnectClient {
                 this.group.shutdownGracefully(0, 5, TimeUnit.SECONDS);
             }
         } catch (Exception e) {
-            // Log but don't throw during cleanup
-            System.err.println("Error shutting down event loop group: " + e.getMessage());
+            logger.error("Error shutting down event loop group: {}", e.getMessage(), e);
         }
     }
 

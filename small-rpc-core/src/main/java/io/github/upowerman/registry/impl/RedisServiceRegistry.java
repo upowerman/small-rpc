@@ -13,6 +13,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -51,6 +52,7 @@ public class RedisServiceRegistry extends BaseServiceRegistry {
 
     private JedisPool jedisPool;
     private ScheduledExecutorService scheduledExecutor;
+    private ScheduledFuture<?> heartbeatFuture;
     private String currentServiceAddress;
     private Set<String> registeredServiceKeys;
 
@@ -106,6 +108,9 @@ public class RedisServiceRegistry extends BaseServiceRegistry {
     public void stop() {
         try {
             // 停止心跳任务
+            if (heartbeatFuture != null && !heartbeatFuture.isCancelled()) {
+                heartbeatFuture.cancel(false);
+            }
             if (scheduledExecutor != null && !scheduledExecutor.isShutdown()) {
                 scheduledExecutor.shutdown();
                 try {
@@ -202,7 +207,7 @@ public class RedisServiceRegistry extends BaseServiceRegistry {
 
         try (Jedis jedis = jedisPool.getResource()) {
             for (String serviceKey : keys) {
-                TreeSet<String> addresses = discovery(serviceKey);
+                TreeSet<String> addresses = doDiscovery(jedis, serviceKey);
                 if (addresses != null && !addresses.isEmpty()) {
                     result.put(serviceKey, addresses);
                 }
@@ -221,34 +226,40 @@ public class RedisServiceRegistry extends BaseServiceRegistry {
         }
 
         try (Jedis jedis = jedisPool.getResource()) {
-            String redisKey = SERVICE_KEY_PREFIX + key;
-            Set<String> addresses = jedis.smembers(redisKey);
-
-            if (addresses == null || addresses.isEmpty()) {
-                logger.debug("未发现服务: {}", key);
-                return null;
-            }
-
-            // 过滤健康的服务实例
-            TreeSet<String> healthyAddresses = new TreeSet<>();
-            for (String address : addresses) {
-                String healthKey = HEALTH_KEY_PREFIX + key + ":" + address;
-                if (jedis.exists(healthKey)) {
-                    healthyAddresses.add(address);
-                } else {
-                    // 清理不健康的服务实例
-                    jedis.srem(redisKey, address);
-                    logger.info("清理不健康的服务实例: {} -> {}", key, address);
-                }
-            }
-
-            logger.debug("发现服务: {} -> {}", key, healthyAddresses);
-            return healthyAddresses.isEmpty() ? null : healthyAddresses;
-
+            return doDiscovery(jedis, key);
         } catch (Exception e) {
             logger.error("服务发现失败: key={}", key, e);
             return null;
         }
+    }
+
+    /**
+     * 内部服务发现实现，复用已有的 Jedis 连接
+     */
+    private TreeSet<String> doDiscovery(Jedis jedis, String key) {
+        String redisKey = SERVICE_KEY_PREFIX + key;
+        Set<String> addresses = jedis.smembers(redisKey);
+
+        if (addresses == null || addresses.isEmpty()) {
+            logger.debug("未发现服务: {}", key);
+            return null;
+        }
+
+        // 过滤健康的服务实例
+        TreeSet<String> healthyAddresses = new TreeSet<>();
+        for (String address : addresses) {
+            String healthKey = HEALTH_KEY_PREFIX + key + ":" + address;
+            if (jedis.exists(healthKey)) {
+                healthyAddresses.add(address);
+            } else {
+                // 清理不健康的服务实例
+                jedis.srem(redisKey, address);
+                logger.info("清理不健康的服务实例: {} -> {}", key, address);
+            }
+        }
+
+        logger.debug("发现服务: {} -> {}", key, healthyAddresses);
+        return healthyAddresses.isEmpty() ? null : healthyAddresses;
     }
 
     /**
@@ -259,7 +270,12 @@ public class RedisServiceRegistry extends BaseServiceRegistry {
             return;
         }
 
-        scheduledExecutor.scheduleWithFixedDelay(() -> {
+        // 取消旧的心跳任务，避免重复注册导致任务泄漏
+        if (heartbeatFuture != null && !heartbeatFuture.isCancelled()) {
+            heartbeatFuture.cancel(false);
+        }
+
+        heartbeatFuture = scheduledExecutor.scheduleWithFixedDelay(() -> {
             try (Jedis jedis = jedisPool.getResource()) {
                 for (String serviceKey : keys) {
                     String healthKey = HEALTH_KEY_PREFIX + serviceKey + ":" + value;

@@ -17,7 +17,7 @@ public class RpcFutureResponse implements Future<RpcResponse> {
 
     private RpcResponse response;
 
-    private boolean done = false;
+    private volatile boolean done = false;
 
     private final Object lock = new Object();
 

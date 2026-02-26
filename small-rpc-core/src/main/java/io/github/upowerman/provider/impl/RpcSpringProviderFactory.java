@@ -28,11 +28,11 @@ public class RpcSpringProviderFactory extends RpcProviderFactory implements Appl
     /**
      * 默认采用NETTY 通信
      */
-    private String netType = NetEnum.NETTY.name();
+    private final String netType = NetEnum.NETTY.name();
     /**
      * 默认序列化方式为HESSIAN
      */
-    private String serialize = SerializeEnum.HESSIAN.name();
+    private final String serialize = SerializeEnum.HESSIAN.name();
 
 
     private void prepareConfig() {
@@ -50,13 +50,9 @@ public class RpcSpringProviderFactory extends RpcProviderFactory implements Appl
      */
     @Override
     public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
-        if (applicationContext == null) {
-            logger.warn("ApplicationContext is null, no RPC services will be registered");
-            return;
-        }
 
         Map<String, Object> serviceBeanMap = applicationContext.getBeansWithAnnotation(RpcService.class);
-        if (serviceBeanMap == null || serviceBeanMap.isEmpty()) {
+        if (serviceBeanMap.isEmpty()) {
             logger.info("No RPC services found with @RpcService annotation");
             return;
         }
@@ -68,18 +64,18 @@ public class RpcSpringProviderFactory extends RpcProviderFactory implements Appl
                 logger.warn("Skipping null service bean for key: {}", entry.getKey());
                 continue;
             }
-            
+
             Class<?>[] interfaces = serviceBean.getClass().getInterfaces();
             if (interfaces.length == 0) {
                 throw new RpcException("服务提供类必须实现接口: " + serviceBean.getClass().getName());
             }
-            
+
             RpcService rpcService = serviceBean.getClass().getAnnotation(RpcService.class);
             if (rpcService == null) {
                 logger.warn("No @RpcService annotation found on {}, skipping", serviceBean.getClass().getName());
                 continue;
             }
-            
+
             String iface = interfaces[0].getName();
             String version = rpcService.version();
             logger.info("Registering RPC service: {} version: {}", iface, version);

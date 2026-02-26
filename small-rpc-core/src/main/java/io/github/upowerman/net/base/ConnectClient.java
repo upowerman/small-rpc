@@ -62,13 +62,7 @@ public abstract class ConnectClient {
                                  final RpcReferenceBean rpcReferenceBean) throws Exception {
 
         ConnectClient connect = ConnectClient.getPool(address, connectClientImpl, rpcReferenceBean);
-
-        try {
-            connect.send(rpcRequest);
-        } catch (Exception e) {
-            throw e;
-        }
-
+        connect.send(rpcRequest);
     }
 
     /**
@@ -130,16 +124,16 @@ public abstract class ConnectClient {
             }
 
             // set pool
-            ConnectClient connectClient_new = connectClientImpl.newInstance();
+            ConnectClient newClient = connectClientImpl.getDeclaredConstructor().newInstance();
             try {
-                connectClient_new.init(address, rpcReferenceBean.getSerializer(), rpcReferenceBean.getInvokerFactory());
-                connectClientMap.put(address, connectClient_new);
+                newClient.init(address, rpcReferenceBean.getSerializer(), rpcReferenceBean.getInvokerFactory());
+                connectClientMap.put(address, newClient);
             } catch (Exception e) {
-                connectClient_new.close();
+                newClient.close();
                 throw e;
             }
 
-            return connectClient_new;
+            return newClient;
         }
 
     }

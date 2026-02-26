@@ -2,10 +2,11 @@ package io.github.upowerman.invoker.route.impl;
 
 import io.github.upowerman.invoker.route.AbstractRpcLoadBalance;
 
-import java.util.Random;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * 轮训负载均衡
@@ -14,18 +15,22 @@ import java.util.concurrent.ConcurrentMap;
  */
 public class RpcLoadBalanceRoundStrategy extends AbstractRpcLoadBalance {
 
-    private final ConcurrentMap<String, Integer> routeCountEachJob = new ConcurrentHashMap<String, Integer>();
-    private long cacheValidTime = 0;
+    private final ConcurrentMap<String, AtomicInteger> routeCountEachJob = new ConcurrentHashMap<>();
+    private volatile long cacheValidTime = 0;
 
-    private Integer count(String serviceKey) {
+    private int count(String serviceKey) {
         if (System.currentTimeMillis() > cacheValidTime) {
             routeCountEachJob.clear();
             cacheValidTime = System.currentTimeMillis() + 24 * 60 * 60 * 1000;
         }
-        Integer count = routeCountEachJob.get(serviceKey);
-        // 初始化时主动Random一次，缓解首次压力
-        count = (count == null || count > 1000000) ? (new Random().nextInt(100)) : ++count;
-        routeCountEachJob.put(serviceKey, count);
+        AtomicInteger counter = routeCountEachJob.computeIfAbsent(serviceKey,
+                k -> new AtomicInteger(ThreadLocalRandom.current().nextInt(100)));
+        int count = counter.incrementAndGet();
+        // 防止溢出，重置计数器
+        if (count > 1000000) {
+            counter.set(ThreadLocalRandom.current().nextInt(100));
+            count = counter.incrementAndGet();
+        }
         return count;
     }
 
