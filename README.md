@@ -20,15 +20,14 @@ Small-RPC 是一款基于 Netty + Hessian 的精简版 RPC 框架，支持 Local
 - 🛡️ **资源管理**: 优化的线程池和连接管理
 - 📊 **监控友好**: 可观测的线程命名和错误处理
 
-## 最新优化 (v1.1.0)
+## 最新优化 (v1.2.0)
 
 ### 🔧 依赖更新
 - **Netty**: 4.1.39 → 4.1.108 (最新稳定版)
 - **Spring**: 4.3.24 → 5.3.39 (安全更新)
 - **Spring Boot**: 1.5.22 → 2.7.18 (LTS 版本)
 - **Maven 插件**: 更新至最新版本
-- **[Redis: 注册中心](https://github.com/upowerman/small-rpc/blob/master/Redis-Registry-Guide.md)**
-- **[Zookeeper: 注册中心](https://github.com/upowerman/small-rpc/blob/master/Zookeeper-Registry-Guide.md)**
+- **注册中心扩展**: 支持 Local / Redis / Zookeeper，并通过配置项统一切换
 
 ### ⚡ 性能优化
 - **线程池增强**: 更好的命名和监控能力
@@ -77,52 +76,20 @@ mvn clean package
 
 ### 3. 服务提供方配置
 
-```java
-@Configuration
-public class RpcProviderConfig {
+示例工程 `small-rpc-sample-springboot-server` 已内置统一配置类 `RpcProviderConfig`，通过配置项自动选择注册中心：
 
-    private Logger logger = LoggerFactory.getLogger(RpcProviderConfig.class);
-
-    // Netty 端口
-    @Value("${small-rpc.provider.port}")
-    private int port;
-
-    @Bean
-    public RpcSpringProviderFactory rpcSpringProviderFactory() {
-        // 核心类 获取服务提供类 启动 Netty
-        RpcSpringProviderFactory providerFactory = new RpcSpringProviderFactory();
-        providerFactory.setPort(port);
-        providerFactory.setCorePoolSize(10);
-        providerFactory.setMaxPoolSize(20);
-        providerFactory.setServiceRegistryClass(LocalServiceRegistry.class);
-        providerFactory.setServiceRegistryParam(Collections.EMPTY_MAP);
-        return providerFactory;
-    }
-}
+```properties
+small-rpc.registry.type=local      # local | redis | zookeeper
+small-rpc.provider.port=7080
 ```
 
 ### 4. 服务消费方配置
 
-```java
-@Configuration
-public class RpcInvokerConfig {
-    private Logger logger = LoggerFactory.getLogger(RpcInvokerConfig.class);
+示例工程 `small-rpc-sample-springboot-client` 已内置统一配置类 `RpcInvokerConfig`，同样通过配置项自动选择注册中心：
 
-    // 指定提供方地址
-    @Value("${small-rpc.registry.address}")
-    private String address;
-
-    @Bean
-    public RpcSpringInvokerFactory rpcInvokerFactory() {
-        RpcSpringInvokerFactory invokerFactory = new RpcSpringInvokerFactory();
-        invokerFactory.setServiceRegistryClass(LocalServiceRegistry.class);
-        HashMap<String, String> params = new HashMap<>();
-        // 指定提供方地址
-        params.put(LocalServiceRegistry.DIRECT_ADDRESS, address);
-        invokerFactory.setServiceRegistryParam(params);
-        return invokerFactory;
-    }
-}
+```properties
+small-rpc.registry.type=local      # local | redis | zookeeper
+small-rpc.registry.address=localhost:7080   # 仅 local 模式需要
 ```
 
 ### 5. 服务实现
@@ -201,6 +168,44 @@ small-rpc.zookeeper.session-timeout=60000
 small-rpc.zookeeper.connection-timeout=15000
 ```
 
+### Redis 模式运行
+
+1. 启动 Redis：
+```bash
+docker run -d --name redis -p 6379:6379 redis:latest
+```
+
+2. 启动 provider：
+```bash
+cd small-rpc-simple/small-rpc-sample-springboot-server
+mvn spring-boot:run -Dspring-boot.run.arguments="--small-rpc.registry.type=redis"
+```
+
+3. 启动 consumer：
+```bash
+cd small-rpc-simple/small-rpc-sample-springboot-client
+mvn spring-boot:run -Dspring-boot.run.arguments="--small-rpc.registry.type=redis"
+```
+
+### Zookeeper 模式运行
+
+1. 启动 Zookeeper：
+```bash
+docker run -d --name zookeeper -p 2181:2181 zookeeper:3.9
+```
+
+2. 启动 provider：
+```bash
+cd small-rpc-simple/small-rpc-sample-springboot-server
+mvn spring-boot:run -Dspring-boot.run.arguments="--small-rpc.registry.type=zookeeper"
+```
+
+3. 启动 consumer：
+```bash
+cd small-rpc-simple/small-rpc-sample-springboot-client
+mvn spring-boot:run -Dspring-boot.run.arguments="--small-rpc.registry.type=zookeeper"
+```
+
 ## 运行示例
 
 1. 启动服务提供方：
@@ -215,7 +220,7 @@ cd small-rpc-simple/small-rpc-sample-springboot-client
 mvn spring-boot:run
 ```
 
-使用 Redis 或 Zookeeper 时，在配置文件中把 `small-rpc.registry.type` 改成 `redis` 或 `zookeeper`。
+使用 Redis 或 Zookeeper 时，在配置文件中把 `small-rpc.registry.type` 改成 `redis` 或 `zookeeper`，或通过启动参数覆盖。
 
 3. 访问测试接口：
 ```bash
