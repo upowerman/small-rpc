@@ -30,6 +30,9 @@ public class LocalServiceRegistry extends BaseServiceRegistry {
     @Override
     public void start(Map<String, String> param) {
         directAddress = new TreeSet<String>();
+        if (param == null || param.isEmpty()) {
+            return;
+        }
         String address = param.get(DIRECT_ADDRESS);
         if (!StringUtils.isEmpty(address)) {
             directAddress.add(address);
