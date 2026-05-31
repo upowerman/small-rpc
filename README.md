@@ -126,6 +126,185 @@ public class HelloController {
 }
 ```
 
+## RPC 全流程详解（入门必读）
+
+这一节按“**服务启动** → **发起调用** → **服务执行** → **结果返回**”完整讲一次，建议结合 `small-rpc-core` 源码一起看。
+
+### 1. 启动阶段：Provider 和 Consumer 各做了什么
+
+#### 1.1 Provider 启动（服务端）
+
+1. Spring 启动时加载 `RpcProviderConfig`，创建 `RpcSpringProviderFactory`。  
+2. `RpcProviderConfig` 根据 `small-rpc.registry.type` 选择注册中心实现：  
+   - `LocalServiceRegistry`
+   - `RedisServiceRegistry`
+   - `ZookeeperServiceRegistry`
+3. `RpcSpringProviderFactory#setApplicationContext(...)` 扫描所有 `@RpcService` Bean。  
+4. 每个 `@RpcService` 对应服务会调用 `RpcProviderFactory#addService(iface, version, bean)`，形成 `serviceKey -> serviceBean` 映射。  
+   - `serviceKey` 由 `RpcProviderFactory.makeServiceKey(iface, version)` 生成（格式：`接口全名#版本`）。  
+5. `RpcSpringProviderFactory#afterPropertiesSet()` 调用 `RpcProviderFactory#start()`：  
+   - 初始化 `NettyServer`  
+   - 设置 `onStart` 回调：服务端口绑定成功后，把已暴露服务注册到注册中心  
+   - 设置 `onStop` 回调：停止时从注册中心移除节点并关闭注册中心
+
+#### 1.2 Consumer 启动（调用端）
+
+1. Spring 启动时加载 `RpcInvokerConfig`，创建 `RpcSpringInvokerFactory`。  
+2. `RpcInvokerConfig` 同样根据 `small-rpc.registry.type` 选择注册中心实现并传参。  
+3. `RpcSpringInvokerFactory#afterPropertiesSet()` 内部创建 `RpcInvokerFactory` 并启动注册中心客户端。  
+4. `RpcSpringInvokerFactory#postProcessAfterInstantiation(...)` 扫描每个 Bean 的字段：  
+   - 找到 `@RpcReference` 字段后，构建 `RpcReferenceBean`  
+   - 调用 `RpcReferenceBean#getObject()` 生成 JDK 动态代理  
+   - 把代理对象注入原字段（业务代码拿到的是代理，不是真实实现类）
+
+---
+
+### 2. 一次 RPC 调用从请求到返回的完整链路
+
+假设业务代码执行：
+
+```java
+helloService.hello("World")
+```
+
+#### 2.1 Consumer 侧：组装请求 + 发包
+
+1. 进入 `RpcReferenceInvocationHandler#invoke(...)`。  
+2. 从 `RpcReferenceBean` 读取配置：`version`、`timeout`、`loadBalance`、`address`、`client`、`invokerFactory`。  
+3. 若注解未写死 `address`，则走注册中心发现：  
+   - 调用 `RpcProviderFactory.makeServiceKey(className, version)` 生成服务键  
+   - 调用 `BaseServiceRegistry#discovery(serviceKey)` 获取地址集合  
+   - 多地址时按 `LoadBalance`（ROUND/RANDOM）选择一个地址  
+4. 创建 `RpcRequest`：  
+   - `requestId`（UUID）  
+   - `createMillisTime`  
+   - `className / methodName / parameterTypes / parameters`  
+   - `version`
+5. 创建 `RpcFutureResponse` 并放入 `RpcInvokerFactory.futureResponsePool`（key=`requestId`）。  
+6. 调用 `NettyClient#asyncSend(address, request)`。  
+7. 底层 `ConnectClient.asyncSend(...)` 获取/创建 `NettyConnectClient` 连接并 `writeAndFlush` 发出请求。  
+8. 当前线程在 `RpcFutureResponse#get(timeout)` 阻塞等待响应。
+
+#### 2.2 Provider 侧：解码 + 执行 + 回包
+
+1. `NettyServer` pipeline 通过 `NettyDecoder` 把字节流反序列化为 `RpcRequest`。  
+2. `NettyServerHandler#channelRead0(...)` 收到请求后，丢到业务线程池执行。  
+3. 在线程池中调用 `RpcProviderFactory#invokeService(request)`：  
+   - 用 `className + version` 计算 `serviceKey`  
+   - 从 `serviceData` 找到目标服务 Bean  
+   - 通过反射 `method.invoke(serviceBean, parameters)` 执行真实业务方法  
+   - 把结果写入 `RpcResponse.result`，异常写入 `RpcResponse.errorMsg`
+4. `NettyServerHandler` 将 `RpcResponse` 回写到 Channel。
+
+#### 2.3 Consumer 侧：收包 + 唤醒等待线程
+
+1. `NettyClientHandler#channelRead0(...)` 收到 `RpcResponse`。  
+2. 调用 `RpcInvokerFactory#notifyInvokerFuture(requestId, response)`。  
+3. 找到对应 `RpcFutureResponse`，设置响应并 `notifyAll()`。  
+4. 业务线程从 `future.get(timeout)` 返回：  
+   - 若 `errorMsg != null`，抛 `RpcException`  
+   - 否则返回 `result` 给业务代码
+
+---
+
+### 3. 关键类职责对照表（先记这些就够用）
+
+| 类/组件 | 角色 | 关键职责 |
+|---|---|---|
+| `RpcProviderConfig` | Provider 配置入口 | 读取配置并装配 `RpcSpringProviderFactory`、注册中心类型和参数 |
+| `RpcInvokerConfig` | Consumer 配置入口 | 读取配置并装配 `RpcSpringInvokerFactory`、注册中心类型和参数 |
+| `RpcSpringProviderFactory` | Provider-Spring 桥接 | 扫描 `@RpcService`，收集服务并启动 `RpcProviderFactory` |
+| `RpcSpringInvokerFactory` | Consumer-Spring 桥接 | 扫描 `@RpcReference`，创建并注入动态代理 |
+| `RpcProviderFactory` | 服务端核心工厂 | 管理服务映射、注册/下线、反射调用 |
+| `RpcInvokerFactory` | 调用端核心工厂 | 管理注册中心客户端、维护 requestId→future 映射 |
+| `RpcReferenceInvocationHandler` | 动态代理调用入口 | 组装请求、服务发现、负载均衡、同步等待响应 |
+| `RpcFutureResponse` | 同步等待容器 | 把异步网络响应转换成同步 `get(timeout)` 语义 |
+| `NettyServer`/`NettyServerHandler` | 服务端网络层 | 接收请求、线程池执行、回写响应 |
+| `NettyClient`/`NettyConnectClient`/`NettyClientHandler` | 调用端网络层 | 建连复用、发送请求、接收响应并回填 future |
+| `BaseServiceRegistry` 及实现类 | 注册中心抽象层 | 提供 `registry/remove/discovery` 统一接口 |
+
+---
+
+### 4. 组件关系图（类协作）
+
+```mermaid
+classDiagram
+direction LR
+
+class RpcProviderConfig
+class RpcInvokerConfig
+class RpcSpringProviderFactory
+class RpcProviderFactory
+class RpcSpringInvokerFactory
+class RpcInvokerFactory
+class RpcReferenceInvocationHandler
+class RpcFutureResponse
+class NettyServer
+class NettyServerHandler
+class NettyClient
+class NettyConnectClient
+class NettyClientHandler
+class BaseServiceRegistry
+class LocalServiceRegistry
+class RedisServiceRegistry
+class ZookeeperServiceRegistry
+
+RpcProviderConfig --> RpcSpringProviderFactory
+RpcInvokerConfig --> RpcSpringInvokerFactory
+RpcSpringProviderFactory --|> RpcProviderFactory
+RpcSpringInvokerFactory --> RpcInvokerFactory
+RpcReferenceInvocationHandler --> RpcInvokerFactory
+RpcReferenceInvocationHandler --> NettyClient
+RpcReferenceInvocationHandler --> RpcFutureResponse
+NettyClient --> NettyConnectClient
+NettyConnectClient --> NettyClientHandler
+NettyServer --> NettyServerHandler
+NettyServerHandler --> RpcProviderFactory
+RpcProviderFactory --> BaseServiceRegistry
+RpcInvokerFactory --> BaseServiceRegistry
+BaseServiceRegistry <|-- LocalServiceRegistry
+BaseServiceRegistry <|-- RedisServiceRegistry
+BaseServiceRegistry <|-- ZookeeperServiceRegistry
+```
+
+### 5. 请求时序图（调用链）
+
+```mermaid
+sequenceDiagram
+autonumber
+participant B as 业务代码(Controller/Service)
+participant P as JDK代理(RpcReferenceInvocationHandler)
+participant R as 注册中心(BaseServiceRegistry)
+participant C as NettyClient/ConnectClient
+participant S as NettyServerHandler
+participant F as RpcProviderFactory
+participant H as NettyClientHandler
+participant Future as RpcFutureResponse
+
+B->>P: helloService.hello("World")
+P->>R: discovery(serviceKey)
+R-->>P: addressSet
+P->>Future: new RpcFutureResponse(requestId)
+P->>C: asyncSend(address, RpcRequest)
+C->>S: 发送 RpcRequest
+S->>F: invokeService(request)
+F-->>S: RpcResponse(result/error)
+S-->>H: 回写 RpcResponse
+H->>Future: setResponse + notifyAll
+Future-->>P: get(timeout) 返回
+P-->>B: 返回 result / 抛出 RpcException
+```
+
+### 6. 三种注册中心在链路中的差异
+
+三种模式的**调用主链路完全一致**，只在“服务地址来源”不同：
+
+- `local`：`LocalServiceRegistry` 直接返回配置里的 `small-rpc.registry.address`。  
+- `redis`：`RedisServiceRegistry` 从 Redis 集合读取健康实例并返回。  
+- `zookeeper`：`ZookeeperServiceRegistry` 从 ZK 节点读取实例地址并返回。  
+
+所以你可以把注册中心理解为“**地址簿插件**”，而不是调用流程本身。
+
 ## 配置说明
 
 ### 线程池配置
@@ -229,14 +408,19 @@ curl http://localhost:8081/hello?name=World
 
 ## 版本历史
 
-### v1.0.0+ (最新优化版)
-- 🔧 依赖版本全面更新至稳定版本
-- ⚡ 性能优化：线程池、连接管理、资源清理
-- 🛡️ 增强错误处理和参数验证
-- 📊 改进日志和监控能力
-- 🔧 修复跨平台兼容性问题
+### v1.2.0 (最新版本)
+- ✅ 新增 Zookeeper 注册中心实现
+- ✅ 注册中心统一改为配置驱动选择：`local | redis | zookeeper`
+- ✅ 示例工程配置简化为单入口（provider/client 统一配置方式）
+- ✅ 文档更新，补充多注册中心使用方式
 
-### v1.0.0 (原始版本)
+### v1.1.0
+- 🔧 依赖版本更新至稳定版本（Netty / Spring / Spring Boot）
+- ⚡ 线程池、连接管理、资源清理等性能优化
+- 🛡️ 参数校验与异常处理增强
+- 📊 日志与可观测性改进
+
+### v1.0.0
 - 基础 RPC 功能实现
 - Netty + Hessian 技术栈
 - Spring 集成支持
