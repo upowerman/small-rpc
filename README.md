@@ -7,7 +7,7 @@
 
 ## 描述
 
-Small-RPC 是一款基于 Netty + Hessian + Redis(注册中心) 的精简版 RPC 框架，专为学习和理解 RPC 原理而设计。
+Small-RPC 是一款基于 Netty + Hessian 的精简版 RPC 框架，支持 Local / Redis / Zookeeper 注册中心，专为学习和理解 RPC 原理而设计。
 
 ⚠️ **注意**: 该框架仅适合学习使用，未经生产环境验证。
 
@@ -28,6 +28,7 @@ Small-RPC 是一款基于 Netty + Hessian + Redis(注册中心) 的精简版 RPC
 - **Spring Boot**: 1.5.22 → 2.7.18 (LTS 版本)
 - **Maven 插件**: 更新至最新版本
 - **[Redis: 注册中心](https://github.com/upowerman/small-rpc/blob/master/Redis-Registry-Guide.md)**
+- **[Zookeeper: 注册中心](https://github.com/upowerman/small-rpc/blob/master/Zookeeper-Registry-Guide.md)**
 
 ### ⚡ 性能优化
 - **线程池增强**: 更好的命名和监控能力
@@ -171,13 +172,33 @@ small-rpc.provider.max-pool-size=20
 small-rpc.provider.port=8080
 ```
 
-### 网络配置
+### 注册中心配置
 
 ```properties
-# 服务注册地址
+# 注册中心类型: local | redis | zookeeper
+small-rpc.registry.type=local
+# local 模式下直连地址(consumer)
 small-rpc.registry.address=localhost:8080
-# 连接超时时间
-small-rpc.connect.timeout=10000
+```
+
+```properties
+# redis 模式
+small-rpc.registry.type=redis
+small-rpc.redis.host=localhost
+small-rpc.redis.port=6379
+small-rpc.redis.password=
+small-rpc.redis.database=0
+small-rpc.redis.timeout=2000
+```
+
+```properties
+# zookeeper 模式
+small-rpc.registry.type=zookeeper
+small-rpc.zookeeper.connect-string=localhost:2181
+small-rpc.zookeeper.namespace=small-rpc
+small-rpc.zookeeper.base-path=/services
+small-rpc.zookeeper.session-timeout=60000
+small-rpc.zookeeper.connection-timeout=15000
 ```
 
 ## 运行示例
@@ -193,6 +214,8 @@ mvn spring-boot:run
 cd small-rpc-simple/small-rpc-sample-springboot-client  
 mvn spring-boot:run
 ```
+
+使用 Redis 或 Zookeeper 时，在配置文件中把 `small-rpc.registry.type` 改成 `redis` 或 `zookeeper`。
 
 3. 访问测试接口：
 ```bash
