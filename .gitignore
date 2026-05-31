@@ -82,3 +82,4 @@ build/
 *.orig
 .checkstyle
 dependency-check-report.html
+.github/

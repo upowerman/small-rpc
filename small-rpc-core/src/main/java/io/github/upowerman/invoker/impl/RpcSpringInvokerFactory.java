@@ -28,7 +28,7 @@ public class RpcSpringInvokerFactory extends InstantiationAwareBeanPostProcessor
 
     private Logger logger = LoggerFactory.getLogger(RpcSpringInvokerFactory.class);
     /**
-     * 服务注册实现类 todo
+     * 服务注册实现类
      */
     private Class<? extends BaseServiceRegistry> serviceRegistryClass;
     private Map<String, String> serviceRegistryParam;

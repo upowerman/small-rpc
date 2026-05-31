@@ -5,6 +5,7 @@ import io.github.upowerman.registry.impl.LocalServiceRegistry;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 
 import java.util.HashMap;
 
@@ -19,6 +20,7 @@ public class RpcInvokerConfig {
     private String address;
 
     @Bean
+    @Primary
     public RpcSpringInvokerFactory jobExecutor() {
         RpcSpringInvokerFactory invokerFactory = new RpcSpringInvokerFactory();
         invokerFactory.setServiceRegistryClass(LocalServiceRegistry.class);

@@ -51,6 +51,7 @@ public class RpcReferenceInvocationHandler implements InvocationHandler {
         request.setMethodName(methodName);
         request.setParameterTypes(parameterTypes);
         request.setParameters(args);
+        request.setVersion(version);
 
         RpcFutureResponse futureResponse = new RpcFutureResponse(invokerFactory, request);
         try {
