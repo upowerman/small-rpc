@@ -43,7 +43,44 @@ Small-RPC 是一款基于 Netty + Hessian 的精简版 RPC 框架，支持 Local
 
 ## 架构简图
 
-![架构图](pic/first.jpg)
+```mermaid
+flowchart LR
+    subgraph Consumer["服务消费端（Consumer）"]
+        C1["业务层<br/>Controller / Service"]
+        C2["@RpcReference 注入代理<br/>RpcSpringInvokerFactory"]
+        C3["调用代理<br/>RpcReferenceInvocationHandler"]
+        C4["服务发现与路由<br/>BaseServiceRegistry + LoadBalance"]
+        C5["网络客户端<br/>NettyClient / NettyConnectClient"]
+        C6["响应绑定<br/>RpcFutureResponse + RpcInvokerFactory"]
+        C1 --> C2 --> C3 --> C4 --> C5
+        C5 --> C6
+    end
+
+    subgraph Registry["注册中心层（可插拔）"]
+        R1["LocalServiceRegistry"]
+        R2["RedisServiceRegistry"]
+        R3["ZookeeperServiceRegistry"]
+    end
+
+    subgraph Provider["服务提供端（Provider）"]
+        P1["网络服务端<br/>NettyServer / NettyServerHandler"]
+        P2["服务调用核心<br/>RpcProviderFactory#invokeService"]
+        P3["@RpcService 服务实现 Bean"]
+        P1 --> P2 --> P3
+    end
+
+    C4 -. discovery .-> R1
+    C4 -. discovery .-> R2
+    C4 -. discovery .-> R3
+    P2 -. registry/remove .-> R1
+    P2 -. registry/remove .-> R2
+    P2 -. registry/remove .-> R3
+
+    C5 -- "RpcRequest（Netty + Hessian）" --> P1
+    P1 -- "RpcResponse（按 requestId 回填）" --> C6
+```
+
+> 说明：主调用链固定为 **Consumer 代理调用 → 注册中心发现地址 → Netty 发送请求 → Provider 反射执行 → 响应回填 future**，`local/redis/zookeeper` 仅影响“地址发现与注册”环节。
 
 ## 工程结构
 
