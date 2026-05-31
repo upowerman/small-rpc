@@ -23,6 +23,7 @@
         <spring.version>5.3.39</spring.version>
         <spring-boot.version>2.7.18</spring-boot.version>
         <hessian.version>4.0.66</hessian.version>
+        <curator.version>5.6.0</curator.version>
         <slf4j-api.version>1.7.36</slf4j-api.version>
         <maven-compiler-plugin.version>3.11.0</maven-compiler-plugin.version>
         <maven-javadoc-plugin.version>3.6.3</maven-javadoc-plugin.version>
@@ -72,6 +73,11 @@
             <groupId>redis.clients</groupId>
             <artifactId>jedis</artifactId>
             <version>4.4.3</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.curator</groupId>
+            <artifactId>curator-framework</artifactId>
+            <version>${curator.version}</version>
         </dependency>
         <dependency>
             <groupId>junit</groupId>
@@ -129,7 +135,6 @@
                 <version>${maven-javadoc-plugin.version}</version>
                 <configuration>
                     <encoding>UTF-8</encoding>
-                    <aggregate>true</aggregate>
                     <charset>UTF-8</charset>
                     <docencoding>UTF-8</docencoding>
                 </configuration>
@@ -140,7 +145,6 @@
                             <goal>jar</goal>
                         </goals>
                         <configuration>
-                            <additionalparam>-Xdoclint:none</additionalparam>
                             <failOnError>false</failOnError>
                             <quiet>true</quiet>
                         </configuration>
@@ -201,6 +205,11 @@
         <developer>
             <name>ethan</name>
             <email>gyf718@foxmail.com</email>
+            <url>https://github.com/upowerman/small-rpc</url>
+        </developer>
+        <developer>
+            <name>gao ethan</name>
+            <email>gaowang.style@gmail.com</email>
             <url>https://github.com/upowerman/small-rpc</url>
         </developer>
     </developers>

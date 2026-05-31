@@ -26,14 +26,15 @@ redis-server
 
 ### 2. 配置服务提供方
 
-#### 激活 Redis Profile
+#### 指定注册中心类型
 ```bash
-java -jar server.jar --spring.profiles.active=redis
+java -jar server.jar --small-rpc.registry.type=redis
 ```
 
 #### 配置 Redis 连接参数 (application-redis.properties)
 ```properties
 # Redis 连接配置
+small-rpc.registry.type=redis
 small-rpc.redis.host=localhost
 small-rpc.redis.port=6379
 small-rpc.redis.password=
@@ -82,6 +83,7 @@ public class RpcRedisProviderConfig {
 #### 配置 Redis 连接参数 (application-redis.properties)
 ```properties
 # Redis 连接配置  
+small-rpc.registry.type=redis
 small-rpc.redis.host=localhost
 small-rpc.redis.port=6379
 small-rpc.redis.password=
@@ -126,13 +128,13 @@ public class RpcRedisInvokerConfig {
 #### 启动服务提供方
 ```bash
 cd small-rpc-simple/small-rpc-sample-springboot-server
-mvn spring-boot:run -Dspring-boot.run.profiles=redis
+mvn spring-boot:run -Dspring-boot.run.arguments="--small-rpc.registry.type=redis"
 ```
 
 #### 启动服务消费方
 ```bash
 cd small-rpc-simple/small-rpc-sample-springboot-client
-mvn spring-boot:run -Dspring-boot.run.profiles=redis
+mvn spring-boot:run -Dspring-boot.run.arguments="--small-rpc.registry.type=redis"
 ```
 
 #### 测试服务调用
