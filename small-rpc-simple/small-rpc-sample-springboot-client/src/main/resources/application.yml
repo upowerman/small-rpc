@@ -6,5 +6,17 @@ spring:
 
 small-rpc:
   registry:
+    type: local
     address: localhost:7080
-
+  redis:
+    host: localhost
+    port: 6379
+    password:
+    database: 0
+    timeout: 2000
+  zookeeper:
+    connect-string: localhost:2181
+    namespace: small-rpc
+    base-path: /services
+    session-timeout: 60000
+    connection-timeout: 15000
