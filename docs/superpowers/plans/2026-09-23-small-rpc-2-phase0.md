@@ -2800,7 +2800,7 @@ import java.util.Collections;
 Run: `mvn -f small-rpc-simple/pom.xml test -q`
 Expected: 全模块 PASS（small-rpc-core 测试 + 编译 sample 模块）
 
-- [ ] **Step 4: 手动验收（新链路打通真服务）**
+- [x] **Step 4: 手动验收（新链路打通真服务）**（2026-09-24 补验通过，双应用 8 次 curl 全 200，见 progress.md）
 
 ```bash
 # 终端 1：起服务端（local 注册中心需配直连地址；见 RpcProviderConfig 的配置项）
@@ -2829,8 +2829,8 @@ git commit -m "feat(rpc2): expose new invocation chain via /rpc2/hello in sample
 
 ## 验收清单（对照 spec §7 P0 行）
 
-- [ ] 新接口体系全部落地：`Invocation` / `Invoker` / `ClusterInvoker(FailoverClusterInvoker)` / `ServiceDirectory` / `LoadBalancer` / `Transport`+`Connection` / `Serializer` / `Filter`+`FilterChain`
-- [ ] `PendingRequests`（`ConcurrentHashMap<Long, CompletableFuture<Result>>`）取代 `RpcFutureResponse` 的 in-flight 管理（1.x 类不动，仅不再被新链路使用）
-- [ ] 容错决策表测试覆盖：空目录、成功、重试后成功、不可重试不重试、重试耗尽、超时、attachments 超时覆盖
-- [ ] 全链路单测（内存 Transport）+ 真 Netty 集成测试 + 样例 `/rpc2/hello` 全部通过
-- [ ] `mvn -f small-rpc-core/pom.xml test -q` 全绿；1.x 行为零改动
+- [x] 新接口体系全部落地：`Invocation` / `Invoker` / `ClusterInvoker(FailoverClusterInvoker)` / `ServiceDirectory` / `LoadBalancer` / `Transport`+`Connection` / `Serializer` / `Filter`+`FilterChain`
+- [x] `PendingRequests`（`ConcurrentHashMap<Long, CompletableFuture<Result>>`）取代 `RpcFutureResponse` 的 in-flight 管理（1.x 类不动，仅不再被新链路使用）
+- [x] 容错决策表测试覆盖：空目录、成功、重试后成功、不可重试不重试、重试耗尽、超时、attachments 超时覆盖
+- [x] 全链路单测（内存 Transport）+ 真 Netty 集成测试 + 样例 `/rpc2/hello` 全部通过
+- [x] `mvn -f small-rpc-core/pom.xml test -q` 全绿；1.x 行为零改动
