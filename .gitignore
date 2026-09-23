@@ -1,14 +1,17 @@
-# Compiled class files
+# ====================================================================
+# Compiled Class Files & Packages
+# ====================================================================
 *.class
-
-# Package Files
 *.jar
 *.war
 *.ear
 *.zip
 *.tar.gz
+*.rar
 
-# Maven
+# ====================================================================
+# Maven & Build Tools
+# ====================================================================
 target/
 pom.xml.tag
 pom.xml.releaseBackup
@@ -20,8 +23,47 @@ buildNumber.properties
 .mvn/timing.properties
 .mvn/wrapper/maven-wrapper.jar
 
+# Gradle (in case Gradle build is introduced)
+.gradle/
+build/
+
+# ====================================================================
+# JVM Crash & Diagnostic Reports
+# ====================================================================
+hs_err_pid*
+replay_pid*
+
+# ====================================================================
+# Logs
+# ====================================================================
+*.log
+logs/
+log/
+
+# ====================================================================
+# Code Quality & Test Coverage
+# ====================================================================
+*.exec
+*.dump
+*.dumpstream
+.checkstyle
+.sonar/
+dependency-check-report.html
+
+# ====================================================================
+# IntelliJ IDEA
+# ====================================================================
+.idea/
+out/
+*.iml
+*.ipr
+*.iws
+.attach_pid*
+
+# ====================================================================
 # Eclipse
-.metadata
+# ====================================================================
+.metadata/
 bin/
 tmp/
 *.tmp
@@ -31,63 +73,56 @@ tmp/
 local.properties
 .settings/
 .loadpath
-.recommenders
+.recommenders/
 .project
 .classpath
 
-# IntelliJ IDEA
-.idea/
-*.iws
-*.iml
-*.ipr
-out/
-.attach_pid*
+# ====================================================================
+# VS Code
+# ====================================================================
+.vscode/
+*.code-workspace
 
+# ====================================================================
 # NetBeans
+# ====================================================================
 /nbproject/private/
 /nbbuild/
 /dist/
 /nbdist/
 /.nb-gradle/
 
-# VS Code
-.vscode/
-
-# Logs
-*.log
-logs/
-log/
-
-# OS Files
+# ====================================================================
+# Operating System & Temporary Files
+# ====================================================================
+# macOS
 .DS_Store
 .DS_Store?
 ._*
 .Spotlight-V100
 .Trashes
-ehthumbs.db
-Thumbs.db
 
-# Temporary files
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+
+# General temp files
 *.cache
 *.diff
 *.patch
 *.tmp
 *~
-
-# Build tools
-.gradle/
-build/
-
-# Application specific
 *.orig
-.checkstyle
-dependency-check-report.html
-.github/
 
-# AI Coding Tools & Agents
+# ====================================================================
+# AI Coding Tools & Agent Workspaces
+# (Preserve .github/ for CI workflows, only ignore AI-specific files)
+# ====================================================================
+.github/copilot-*.md
 .gemini/
 .copilot/
-.github/copilot-*.md
 .cursor/
 .cursorignore
 .cursorindexingignore
