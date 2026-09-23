@@ -24,6 +24,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 
 public class FailoverClusterInvokerTest {
 
@@ -193,5 +194,50 @@ public class FailoverClusterInvokerTest {
         Result result = cluster.invoke(inv).get(2, TimeUnit.SECONDS);
 
         assertSame(Status.TIMEOUT, result.status());
+    }
+
+    @Test
+    public void deadlineBudgetPreventsRetryAfterTimeoutConsumedIt() throws Exception {
+        AtomicInteger count = new AtomicInteger();
+        Invoker silent = new Invoker() {
+            @Override
+            public Class<?> interfaceClass() {
+                return Object.class;
+            }
+
+            @Override
+            public CompletableFuture<Result> invoke(Invocation invocation) {
+                count.incrementAndGet();
+                return new CompletableFuture<Result>(); // 永不完成
+            }
+        };
+        // retries=1 但总预算 100ms 被第一次超时耗尽 → 不应再发起第二次尝试
+        FailoverClusterInvoker cluster = new FailoverClusterInvoker(
+                dir(new ServiceInstance("127.0.0.1:1")), firstLb(), silent, 1, 100L);
+
+        long start = System.currentTimeMillis();
+        Result result = cluster.invoke(invocation()).get(3, TimeUnit.SECONDS);
+        long elapsed = System.currentTimeMillis() - start;
+
+        assertSame(Status.TIMEOUT, result.status());
+        assertEquals(1, count.get());
+        assertTrue("deadline 不应被重试突破，实际耗时 " + elapsed + "ms", elapsed < 1000);
+    }
+
+    @Test
+    public void nonPositiveBudgetMeansExplicitNoTimeoutStillRetriesFastFailures() throws Exception {
+        Queue<Result> script = new ConcurrentLinkedQueue<Result>();
+        script.add(DefaultResult.failure(Status.NETWORK_ERROR));
+        script.add(DefaultResult.success("ok"));
+        AtomicInteger count = new AtomicInteger();
+        // budget<=0 = 显式"不设超时"：非 deadline 模式，但快速失败仍按 retries 重试
+        FailoverClusterInvoker cluster = new FailoverClusterInvoker(
+                dir(new ServiceInstance("127.0.0.1:1")), firstLb(),
+                scriptedInvoker(script, count, new ArrayList<String>()), 2, 0L);
+
+        Result result = cluster.invoke(invocation()).get(2, TimeUnit.SECONDS);
+
+        assertEquals("ok", result.value());
+        assertEquals(2, count.get());
     }
 }
