@@ -14,7 +14,7 @@
 
 - **Java 8 语法**（pom source/target 1.8）：禁用 `orTimeout`/`completeOnTimeout`（Java 9+）、`var`、`List.of`、`Map.of`；超时一律用本计划的 `Futures.withTimeout`。
 - **JUnit 4.13.2**：测试写法用 `org.junit.Test` + `org.junit.Assert.*`（沿用 1.x 测试风格），不要用 JUnit 5。
-- **测试命令**：`mvn -pl small-rpc-core test -q`。**禁止 `mvn verify`**：pom 里 GPG 插件绑定在 verify 阶段，本机无密钥会失败。
+- **测试命令**：core 模块用 `mvn -f small-rpc-core/pom.xml test -q`（工程无根聚合 pom，`-pl` 不可用）。**禁止 `mvn verify`**：pom 里 GPG 插件绑定在 verify 阶段，本机无密钥会失败。
 - **分支**：所有工作在 `feature/rpc2` 分支；master 保持 1.x 不动。
 - **包边界**：新代码包根 `io.github.upowerman.core`；`core` 包内禁止 import Spring 类型；只有适配器任务允许 import 1.x 类（`io.github.upowerman.net.*`、`io.github.upowerman.registry.*`、`io.github.upowerman.serialize.*`、`io.github.upowerman.provider.RpcProviderFactory`、`io.github.upowerman.exception.RpcException`）。
 - **1.x 不动**：不修改 `io.github.upowerman`（非 `core`）下的任何已有类；已有测试必须保持通过。
@@ -76,7 +76,7 @@ public class DefaultResultTest {
 
 - [ ] **Step 2: 运行确认失败**
 
-Run: `mvn -pl small-rpc-core test -q -Dtest=DefaultResultTest`
+Run: `mvn -f small-rpc-core/pom.xml test -q -Dtest=DefaultResultTest`
 Expected: 编译失败（`DefaultResult`/`Status`/`Result` 不存在）
 
 - [ ] **Step 3: 最小实现**
@@ -176,7 +176,7 @@ public final class DefaultResult implements Result {
 
 - [ ] **Step 4: 运行确认通过**
 
-Run: `mvn -pl small-rpc-core test -q -Dtest=DefaultResultTest`
+Run: `mvn -f small-rpc-core/pom.xml test -q -Dtest=DefaultResultTest`
 Expected: PASS（3 个测试）
 
 - [ ] **Step 5: 创建分支并提交**
@@ -238,7 +238,7 @@ public class GenericInvocationTest {
 
 - [ ] **Step 2: 运行确认失败**
 
-Run: `mvn -pl small-rpc-core test -q -Dtest=GenericInvocationTest`
+Run: `mvn -f small-rpc-core/pom.xml test -q -Dtest=GenericInvocationTest`
 Expected: 编译失败（类不存在）
 
 - [ ] **Step 3: 最小实现**
@@ -350,7 +350,7 @@ public class GenericInvocation implements Invocation {
 
 - [ ] **Step 4: 运行确认通过**
 
-Run: `mvn -pl small-rpc-core test -q -Dtest=GenericInvocationTest`
+Run: `mvn -f small-rpc-core/pom.xml test -q -Dtest=GenericInvocationTest`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -420,7 +420,7 @@ public class PullServiceDirectoryTest {
 
 - [ ] **Step 2: 运行确认失败**
 
-Run: `mvn -pl small-rpc-core test -q -Dtest=PullServiceDirectoryTest`
+Run: `mvn -f small-rpc-core/pom.xml test -q -Dtest=PullServiceDirectoryTest`
 Expected: 编译失败（类不存在）
 
 - [ ] **Step 3: 最小实现**
@@ -541,7 +541,7 @@ public class PullServiceDirectory implements ServiceDirectory {
 
 - [ ] **Step 4: 运行确认通过**
 
-Run: `mvn -pl small-rpc-core test -q -Dtest=PullServiceDirectoryTest`
+Run: `mvn -f small-rpc-core/pom.xml test -q -Dtest=PullServiceDirectoryTest`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -621,7 +621,7 @@ public class LoadBalancerTest {
 
 - [ ] **Step 2: 运行确认失败**
 
-Run: `mvn -pl small-rpc-core test -q -Dtest=LoadBalancerTest`
+Run: `mvn -f small-rpc-core/pom.xml test -q -Dtest=LoadBalancerTest`
 Expected: 编译失败（类不存在）
 
 - [ ] **Step 3: 最小实现**
@@ -702,7 +702,7 @@ public class RoundRobinLoadBalancer implements LoadBalancer {
 
 - [ ] **Step 4: 运行确认通过**
 
-Run: `mvn -pl small-rpc-core test -q -Dtest=LoadBalancerTest`
+Run: `mvn -f small-rpc-core/pom.xml test -q -Dtest=LoadBalancerTest`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -835,7 +835,7 @@ public class FilterChainTest {
 
 - [ ] **Step 2: 运行确认失败**
 
-Run: `mvn -pl small-rpc-core test -q -Dtest=FilterChainTest`
+Run: `mvn -f small-rpc-core/pom.xml test -q -Dtest=FilterChainTest`
 Expected: 编译失败（类不存在）
 
 - [ ] **Step 3: 最小实现**
@@ -962,7 +962,7 @@ public class TraceFilter implements Filter {
 
 - [ ] **Step 4: 运行确认通过**
 
-Run: `mvn -pl small-rpc-core test -q -Dtest=FilterChainTest`
+Run: `mvn -f small-rpc-core/pom.xml test -q -Dtest=FilterChainTest`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -1098,7 +1098,7 @@ public class FuturesTest {
 
 - [ ] **Step 2: 运行确认失败**
 
-Run: `mvn -pl small-rpc-core test -q -Dtest='PendingRequestsTest,FuturesTest'`
+Run: `mvn -f small-rpc-core/pom.xml test -q -Dtest='PendingRequestsTest,FuturesTest'`
 Expected: 编译失败（类不存在）
 
 - [ ] **Step 3: 最小实现**
@@ -1197,7 +1197,7 @@ public final class Futures {
 
 - [ ] **Step 4: 运行确认通过**
 
-Run: `mvn -pl small-rpc-core test -q -Dtest='PendingRequestsTest,FuturesTest'`
+Run: `mvn -f small-rpc-core/pom.xml test -q -Dtest='PendingRequestsTest,FuturesTest'`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -1283,7 +1283,7 @@ public class InMemoryTransportTest {
 
 - [ ] **Step 2: 运行确认失败**
 
-Run: `mvn -pl small-rpc-core test -q -Dtest=InMemoryTransportTest`
+Run: `mvn -f small-rpc-core/pom.xml test -q -Dtest=InMemoryTransportTest`
 Expected: 编译失败（类不存在）
 
 - [ ] **Step 3: 最小实现**
@@ -1417,7 +1417,7 @@ public class InMemoryTransport implements Transport {
 
 - [ ] **Step 4: 运行确认通过**
 
-Run: `mvn -pl small-rpc-core test -q -Dtest=InMemoryTransportTest`
+Run: `mvn -f small-rpc-core/pom.xml test -q -Dtest=InMemoryTransportTest`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -1516,7 +1516,7 @@ public class ReflectiveInvokerTest {
 
 - [ ] **Step 2: 运行确认失败**
 
-Run: `mvn -pl small-rpc-core test -q -Dtest=ReflectiveInvokerTest`
+Run: `mvn -f small-rpc-core/pom.xml test -q -Dtest=ReflectiveInvokerTest`
 Expected: 编译失败（类不存在）
 
 - [ ] **Step 3: 最小实现**
@@ -1577,7 +1577,7 @@ public class ReflectiveInvoker implements Invoker {
 
 - [ ] **Step 4: 运行确认通过**
 
-Run: `mvn -pl small-rpc-core test -q -Dtest=ReflectiveInvokerTest`
+Run: `mvn -f small-rpc-core/pom.xml test -q -Dtest=ReflectiveInvokerTest`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -1698,7 +1698,7 @@ public class RemoteInvokerTest {
 
 - [ ] **Step 2: 运行确认失败**
 
-Run: `mvn -pl small-rpc-core test -q -Dtest=RemoteInvokerTest`
+Run: `mvn -f small-rpc-core/pom.xml test -q -Dtest=RemoteInvokerTest`
 Expected: 编译失败（类不存在）
 
 - [ ] **Step 3: 最小实现**
@@ -1756,7 +1756,7 @@ public class RemoteInvoker implements Invoker {
 
 - [ ] **Step 4: 运行确认通过**
 
-Run: `mvn -pl small-rpc-core test -q -Dtest=RemoteInvokerTest`
+Run: `mvn -f small-rpc-core/pom.xml test -q -Dtest=RemoteInvokerTest`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -1982,7 +1982,7 @@ public class FailoverClusterInvokerTest {
 
 - [ ] **Step 2: 运行确认失败**
 
-Run: `mvn -pl small-rpc-core test -q -Dtest=FailoverClusterInvokerTest`
+Run: `mvn -f small-rpc-core/pom.xml test -q -Dtest=FailoverClusterInvokerTest`
 Expected: 编译失败（类不存在）
 
 - [ ] **Step 3: 最小实现**
@@ -2099,7 +2099,7 @@ public class FailoverClusterInvoker implements Invoker {
 
 - [ ] **Step 4: 运行确认通过**
 
-Run: `mvn -pl small-rpc-core test -q -Dtest=FailoverClusterInvokerTest`
+Run: `mvn -f small-rpc-core/pom.xml test -q -Dtest=FailoverClusterInvokerTest`
 Expected: PASS（7 个测试）
 
 - [ ] **Step 5: Commit**
@@ -2230,7 +2230,7 @@ public class RpcChainIntegrationTest {
 
 - [ ] **Step 2: 运行确认失败**
 
-Run: `mvn -pl small-rpc-core test -q -Dtest=RpcChainIntegrationTest`
+Run: `mvn -f small-rpc-core/pom.xml test -q -Dtest=RpcChainIntegrationTest`
 Expected: 编译失败（`RpcProxyFactory` 不存在）
 
 - [ ] **Step 3: 最小实现**
@@ -2299,7 +2299,7 @@ public class RpcProxyFactory<T> {
 
 - [ ] **Step 4: 运行全部 core 测试，确认新旧都绿**
 
-Run: `mvn -pl small-rpc-core test -q`
+Run: `mvn -f small-rpc-core/pom.xml test -q`
 Expected: PASS —— 新链路测试 + 1.x 既有测试（RpcReferenceInvocationHandlerTest、LocalServiceRegistryTest 等）全部通过
 
 - [ ] **Step 5: Commit**
@@ -2482,7 +2482,7 @@ public class LegacyNettyTransportIntegrationTest {
 
 - [ ] **Step 2: 运行确认失败**
 
-Run: `mvn -pl small-rpc-core test -q -Dtest='LegacyHessianSerializerTest,LegacyNettyTransportIntegrationTest'`
+Run: `mvn -f small-rpc-core/pom.xml test -q -Dtest='LegacyHessianSerializerTest,LegacyNettyTransportIntegrationTest'`
 Expected: 编译失败（类不存在）
 
 - [ ] **Step 3: 实现**
@@ -2707,12 +2707,12 @@ public class LegacyNettyTransport implements Transport {
 
 - [ ] **Step 4: 运行确认通过（注意本测试占用 18080 端口）**
 
-Run: `mvn -pl small-rpc-core test -q -Dtest='LegacyHessianSerializerTest,LegacyNettyTransportIntegrationTest'`
+Run: `mvn -f small-rpc-core/pom.xml test -q -Dtest='LegacyHessianSerializerTest,LegacyNettyTransportIntegrationTest'`
 Expected: PASS。若 18080 被占用，先 `lsof -ti:18080 | xargs kill` 再重跑
 
 - [ ] **Step 5: 运行全量测试**
 
-Run: `mvn -pl small-rpc-core test -q`
+Run: `mvn -f small-rpc-core/pom.xml test -q`
 Expected: 全部 PASS（含 1.x 测试）
 
 - [ ] **Step 6: Commit**
@@ -2797,7 +2797,7 @@ import java.util.Collections;
 
 - [ ] **Step 3: 编译与既有测试**
 
-Run: `mvn test -q`
+Run: `mvn -f small-rpc-simple/pom.xml test -q`
 Expected: 全模块 PASS（small-rpc-core 测试 + 编译 sample 模块）
 
 - [ ] **Step 4: 手动验收（新链路打通真服务）**
@@ -2833,4 +2833,4 @@ git commit -m "feat(rpc2): expose new invocation chain via /rpc2/hello in sample
 - [ ] `PendingRequests`（`ConcurrentHashMap<Long, CompletableFuture<Result>>`）取代 `RpcFutureResponse` 的 in-flight 管理（1.x 类不动，仅不再被新链路使用）
 - [ ] 容错决策表测试覆盖：空目录、成功、重试后成功、不可重试不重试、重试耗尽、超时、attachments 超时覆盖
 - [ ] 全链路单测（内存 Transport）+ 真 Netty 集成测试 + 样例 `/rpc2/hello` 全部通过
-- [ ] `mvn -pl small-rpc-core test -q` 全绿；1.x 行为零改动
+- [ ] `mvn -f small-rpc-core/pom.xml test -q` 全绿；1.x 行为零改动
