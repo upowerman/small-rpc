@@ -146,7 +146,7 @@ small-rpc:
 <dependency>
     <groupId>io.github.upowerman</groupId>
     <artifactId>small-rpc-spring-boot-starter</artifactId>
-    <version>1.0.0</version>
+    <version>2.0.0</version>
 </dependency>
 
 <!-- 生产环境集群部署：按需引入分布式注册中心实现（二选一） -->
@@ -154,14 +154,14 @@ small-rpc:
 <dependency>
     <groupId>io.github.upowerman</groupId>
     <artifactId>rpc-registry-zookeeper</artifactId>
-    <version>1.0.0</version>
+    <version>2.0.0</version>
 </dependency>
 
 <!-- 2. Redis 注册中心 -->
 <dependency>
     <groupId>io.github.upowerman</groupId>
     <artifactId>rpc-registry-redis</artifactId>
-    <version>1.0.0</version>
+    <version>2.0.0</version>
 </dependency>
 ```
 
@@ -224,19 +224,19 @@ public class HelloController {
 
 2. **启动提供方实例 1**（Web: 8090, RPC: 7081）：
    ```bash
-   java -jar rpc-examples/rpc-example-server/target/rpc-example-server-1.0.0.jar \
+   java -jar rpc-examples/rpc-example-server/target/rpc-example-server-2.0.0.jar \
      --spring.profiles.active=zookeeper --server.port=8090 --small-rpc.provider.rpc2-port=7081
    ```
 
 3. **启动提供方实例 2**（Web: 8092, RPC: 7082）：
    ```bash
-   java -jar rpc-examples/rpc-example-server/target/rpc-example-server-1.0.0.jar \
+   java -jar rpc-examples/rpc-example-server/target/rpc-example-server-2.0.0.jar \
      --spring.profiles.active=zookeeper --server.port=8092 --small-rpc.provider.rpc2-port=7082
    ```
 
 4. **启动消费方**（Web: 8091）：
    ```bash
-   java -jar rpc-examples/rpc-example-client/target/rpc-example-client-1.0.0.jar \
+   java -jar rpc-examples/rpc-example-client/target/rpc-example-client-2.0.0.jar \
      --spring.profiles.active=zookeeper --server.port=8091
    ```
 
