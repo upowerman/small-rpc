@@ -82,7 +82,7 @@
 Small-RPC 2.0 提供了三种灵活的服务消费模型，覆盖从本地极速调试到生产集群治理的全部场景：
 
 ### 方式 1：Local 默认配置直连
-适合本地单机联调，客户端直接配置目标 Provider 地址：
+适合本地单机联调，客户端直接配置目标 Provider 地址（支持 IDE 属性智能补全）：
 ```yaml
 small-rpc:
   consumer:
@@ -91,9 +91,11 @@ small-rpc:
     enabled: false
   registry:
     type: local
-    param:
-      DIRECT_ADDRESS: localhost:7081
+    local:
+      direct-address: localhost:7081
 ```
+> [!NOTE]
+> 为保证向下兼容，历史配置格式 `small-rpc.registry.param.DIRECT_ADDRESS` 依然完全支持并作为备选兜底。
 
 ### 方式 2：`@RpcReference(address = "...")` 注解级点对点直连
 在代码层面显式指定特定实例地址，完全跳过注册中心寻址与负载均衡：
@@ -115,11 +117,20 @@ small-rpc:
   provider:
     enabled: false
   registry:
-    type: zookeeper      # 或 redis
-    param:
-      zk.connect: localhost:2181
-      zk.namespace: small-rpc
+    type: zookeeper      # 或 redis / local
+    zookeeper:
+      connect: localhost:2181
+      namespace: small-rpc
   loadbalance: random    # random 或 roundrobin
+```
+若使用 Redis 注册中心：
+```yaml
+small-rpc:
+  registry:
+    type: redis
+    redis:
+      host: localhost
+      port: 6379
 ```
 
 ---
@@ -263,15 +274,16 @@ public class HelloController {
 | `small-rpc.provider.address` | 自动探测本机 IP | String | 提供端对外注册的地址（`IP:Port`），多网卡或容器端口映射环境下建议显式配置 |
 | `small-rpc.consumer.enabled` | `true` | Boolean | 是否启用服务消费端 |
 | `small-rpc.registry.type` | `local` | String | 注册中心 SPI 扩展名：`local` / `zookeeper` / `redis` |
-| `small-rpc.registry.param.DIRECT_ADDRESS` | `localhost:7081` | String | Local 直连模式下的目标 Provider 地址 |
-| `small-rpc.registry.param.zk.connect` | `localhost:2181` | String | ZooKeeper 连接串（支持多地址逗号分隔） |
-| `small-rpc.registry.param.zk.namespace` | `small-rpc` | String | ZooKeeper 命名空间根路径 |
-| `small-rpc.registry.param.zk.session-timeout-ms` | `10000` | Integer | ZooKeeper 会话超时时间（毫秒） |
-| `small-rpc.registry.param.zk.connection-timeout-ms` | `3000` | Integer | ZooKeeper 连接超时时间（毫秒） |
-| `small-rpc.registry.param.redis.host` | `localhost` | String | Redis 主机名/IP |
-| `small-rpc.registry.param.redis.port` | `6379` | Integer | Redis 端口 |
-| `small-rpc.registry.param.redis.password` | 无 | String | Redis 访问密码（可选） |
-| `small-rpc.registry.param.redis.poll-interval-ms` | `3000` | Long | Redis 注册表差量比对拉取周期（毫秒） |
+| `small-rpc.registry.local.direct-address` | `""` | String | Local 直连模式下的目标 Provider 地址（支持 IDE 属性智能补全） |
+| `small-rpc.registry.zookeeper.connect` | `localhost:2181` | String | ZooKeeper 连接串（支持多地址逗号分隔） |
+| `small-rpc.registry.zookeeper.namespace` | `small-rpc` | String | ZooKeeper 命名空间根路径 |
+| `small-rpc.registry.zookeeper.session-timeout-ms` | `10000` | Integer | ZooKeeper 会话超时时间（毫秒） |
+| `small-rpc.registry.zookeeper.connection-timeout-ms` | `3000` | Integer | ZooKeeper 连接建立超时时间（毫秒） |
+| `small-rpc.registry.redis.host` | `localhost` | String | Redis 服务器主机名/IP 地址 |
+| `small-rpc.registry.redis.port` | `6379` | Integer | Redis 服务器端口（1~65535） |
+| `small-rpc.registry.redis.password` | 无 | String | Redis 认证密码（无密码留空） |
+| `small-rpc.registry.redis.poll-interval-ms` | `3000` | Long | Redis 注册表差量比对拉取周期（毫秒） |
+| `small-rpc.registry.param.*` | - | Map<String, String> | 底层注册中心原始通用参数字典（向下兼容，同名键优先级高于强类型默认值） |
 | `small-rpc.loadbalance` | `random` | String | 全局负载均衡算法 SPI 名：`random`（随机）或 `roundrobin`（轮询） |
 
 ---
