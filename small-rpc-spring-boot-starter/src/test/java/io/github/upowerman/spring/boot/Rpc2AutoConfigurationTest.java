@@ -1,6 +1,8 @@
 package io.github.upowerman.spring.boot;
 
+import io.github.upowerman.core.registry.BaseServiceRegistry;
 import io.github.upowerman.core.serialize.SerializerRegistry;
+import io.github.upowerman.core.spi.SpiLoader;
 import org.junit.Test;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -9,6 +11,7 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Configuration;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 
 /**
  * starter 自动装配的上下文级测试：真实起 Spring Boot 上下文（非 web），
@@ -35,5 +38,22 @@ public class Rpc2AutoConfigurationTest {
         } finally {
             context.close();
         }
+    }
+
+    @Test
+    public void contextCloseDoesNotStopProcessLevelRegistrySingleton() {
+        // SPI 扩展是进程级单例，跨 Spring 上下文共享；上下文关闭若把它 stop 掉，
+        // 同一 JVM 的第二个上下文的地址表会被清空（LocalServiceRegistry.stop 会 clear）
+        ConfigurableApplicationContext context = new SpringApplicationBuilder(TestApp.class)
+                .web(WebApplicationType.NONE)
+                .properties("small-rpc.provider.enabled=false",
+                        "small-rpc.registry.type=local",
+                        "small-rpc.registry.param[DIRECT_ADDRESS]=localhost:7081")
+                .run();
+        context.close();
+
+        BaseServiceRegistry singleton = SpiLoader.of(BaseServiceRegistry.class).getExtension("local");
+        assertFalse("上下文关闭不应清空进程级 SPI 单例的地址表",
+                singleton.discovery("io.github.upowerman.service.HelloService").isEmpty());
     }
 }
