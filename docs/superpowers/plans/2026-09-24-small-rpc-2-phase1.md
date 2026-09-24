@@ -924,10 +924,12 @@ import io.github.upowerman.core.testsupport.EchoServiceImpl;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.embedded.EmbeddedChannel;
+import io.netty.handler.timeout.IdleStateEvent;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.net.ServerSocket;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Executor;
@@ -937,6 +939,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 public class ServerHandlerTest {
 
@@ -1110,6 +1113,33 @@ public class ServerHandlerTest {
         assertEquals(201L, second.requestId());
         assertEquals("echo:two", ((EchoDTO) bodyOf(second).getValue()).getMsg());
     }
+
+    /** READER_IDLE（服务端连续 SERVER_IDLE_SECONDS 无读）必须关连接——死连接回收唯一的执行点 */
+    @Test
+    public void readerIdleEventClosesConnection() {
+        channel.pipeline().fireUserEventTriggered(new Object());
+        assertTrue("非空闲事件不得关闭连接", channel.isOpen());
+        channel.pipeline().fireUserEventTriggered(IdleStateEvent.READER_IDLE_EVENT);
+        assertFalse("READER_IDLE 必须关闭连接", channel.isOpen());
+    }
+
+    /** 重复 start 必须显式失败，而非静默覆盖 boss/worker 泄漏上一组事件循环线程 */
+    @Test
+    public void doubleStartThrowsInsteadOfLeakingEventLoops() throws Exception {
+        ServerSocket probe = new ServerSocket(0);
+        int port = probe.getLocalPort();
+        probe.close();
+        RpcServer server = new RpcServer(port, new SerializerRegistry());
+        server.start();
+        try {
+            server.start();
+            fail("重复 start 应抛 IllegalStateException");
+        } catch (IllegalStateException expected) {
+            // ok
+        } finally {
+            server.shutdown();
+        }
+    }
 }
 ```
 
@@ -1129,6 +1159,8 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ByteToMessageDecoder;
 import io.netty.handler.codec.DecoderException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
@@ -1137,6 +1169,8 @@ import java.util.List;
  * 流已错位，继续读只会产出垃圾帧。
  */
 public class FrameDecoder extends ByteToMessageDecoder {
+
+    private static final Logger logger = LoggerFactory.getLogger(FrameDecoder.class);
 
     @Override
     protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) {
@@ -1150,6 +1184,7 @@ public class FrameDecoder extends ByteToMessageDecoder {
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         Throwable real = cause instanceof DecoderException && cause.getCause() != null ? cause.getCause() : cause;
         if (real instanceof ProtocolException) {
+            logger.warn("rpc2 protocol violation, closing connection: {}", real.getMessage());
             ctx.close();
         } else {
             ctx.fireExceptionCaught(cause);
@@ -1194,6 +1229,7 @@ public class FrameEncoder extends MessageToByteEncoder<Frame> {
 ```java
 package io.github.upowerman.core.server;
 
+import io.github.upowerman.core.RpcConstants;
 import io.github.upowerman.core.invocation.GenericInvocation;
 import io.github.upowerman.core.invocation.Invocation;
 import io.github.upowerman.core.invoker.Invoker;
@@ -1209,6 +1245,8 @@ import io.github.upowerman.exception.RpcException;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.handler.timeout.IdleState;
+import io.netty.handler.timeout.IdleStateEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -1342,6 +1380,19 @@ public class ServerHandler extends SimpleChannelInboundHandler<Frame> {
     }
 
     @Override
+    public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
+        // READER_IDLE = 连续 SERVER_IDLE_SECONDS 无读事件：对端已死（心跳保活失灵），回收半开连接。
+        // IdleStateHandler 只发事件不关连接，这里是死连接回收唯一的执行点。
+        if (evt instanceof IdleStateEvent && ((IdleStateEvent) evt).state() == IdleState.READER_IDLE) {
+            logger.warn("rpc2 server closes idle connection: {} (no read for {}s)",
+                    ctx.channel().remoteAddress(), RpcConstants.SERVER_IDLE_SECONDS);
+            ctx.close();
+        } else {
+            super.userEventTriggered(ctx, evt);
+        }
+    }
+
+    @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         logger.warn("server channel error, close: {}", cause.toString());
         ctx.close();
@@ -1419,6 +1470,10 @@ public class RpcServer {
     }
 
     public void start() throws InterruptedException {
+        if (serverChannel != null) {
+            // 重复 start 会静默覆盖 boss/worker，泄漏上一组事件循环线程——显式失败
+            throw new IllegalStateException("rpc2 server already started on port " + port);
+        }
         boss = new NioEventLoopGroup(1);
         worker = new NioEventLoopGroup();
         ServerBootstrap bootstrap = new ServerBootstrap();
@@ -1465,7 +1520,7 @@ public class RpcServer {
 - [ ] **Step 4: 跑测试确认通过**
 
 Run: `mvn -f small-rpc-core/pom.xml test -q -Dtest=ServerHandlerTest`
-Expected: PASS（10 tests）
+Expected: PASS（12 tests）
 
 - [ ] **Step 5: Commit**
 
