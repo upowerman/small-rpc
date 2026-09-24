@@ -48,7 +48,7 @@ public final class ProtocolStatus {
             case SERVER_ERROR:
                 return Status.SERVER_ERROR;
             default:
-                throw new ProtocolException("unknown status code: " + code);
+                throw new ProtocolException("unknown status code: " + (code & 0xFF));
         }
     }
 }

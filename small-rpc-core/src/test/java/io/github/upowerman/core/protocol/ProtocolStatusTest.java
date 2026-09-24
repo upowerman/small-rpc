@@ -23,6 +23,16 @@ public class ProtocolStatusTest {
         assertEquals(Status.SERVER_ERROR, ProtocolStatus.fromCode(ProtocolStatus.SERVER_ERROR));
     }
 
+    /** 线上字节值是跨版本契约：钉死字面量，避免常量被改动而往返测试仍绿 */
+    @Test
+    public void wireByteValuesArePinned() {
+        assertEquals((byte) 0, ProtocolStatus.SUCCESS);
+        assertEquals((byte) 1, ProtocolStatus.SERVICE_NOT_FOUND);
+        assertEquals((byte) 2, ProtocolStatus.METHOD_NOT_FOUND);
+        assertEquals((byte) 3, ProtocolStatus.SERIALIZATION_ERROR);
+        assertEquals((byte) 4, ProtocolStatus.SERVER_ERROR);
+    }
+
     @Test
     public void localOnlyStatusesAreNotRepresentable() {
         try {
