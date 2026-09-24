@@ -7,39 +7,182 @@
 
 ## 描述
 
-Small-RPC 是一款基于 Netty + Hessian 的精简版 RPC 框架，支持 Local / Redis / Zookeeper 注册中心，专为学习和理解 RPC 原理而设计。
+Small-RPC 是一款基于 Netty + Hessian 的精简版 RPC 框架，2.0 起拆分为多模块并内置自研 SPI（注册中心 / 序列化器 / 负载均衡可插拔），专为学习和理解 RPC 原理而设计。当前支持 Local 直连注册中心（Zookeeper / Redis 属 P3 规划）。
 
 ⚠️ **注意**: 该框架仅适合学习使用，未经生产环境验证。
 
 ## 特性
 
-- 🚀 **高性能**: 基于 Netty NIO 框架
-- 🔄 **序列化**: 支持 Hessian 高效序列化
-- 🔧 **Spring 集成**: 完美集成 Spring 生态
-- 💡 **简单易用**: 注解驱动的开发方式
-- 🛡️ **资源管理**: 优化的线程池和连接管理
+- 🚀 **多模块**: rpc-core（零协议 / 零传输依赖）+ rpc-transport-netty + rpc-registry-local + small-rpc-spring + small-rpc-spring-boot-starter
+- 🔄 **自研 SPI**: `@Spi` 默认扩展、`@SpiInject` 注入（带环检测）、`@Adaptive` 自适应分发，异常一律大声失败
+- 🌐 **可插拔**: 注册中心 / 序列化器 / 负载均衡均经 SPI 装配，登记文件 `META-INF/small-rpc/<接口FQCN>`
+- 🛡️ **调用链路**: Filter 链 + Failover 集群容错（按状态码重试）+ deadline 预算超时
+- 🔧 **Spring Boot Starter**: `@RpcService` / `@RpcReference` 注解驱动，`small-rpc.*` 配置驱动装配
 - 📊 **监控友好**: 可观测的线程命名和错误处理
 
-## 最新优化 (v1.2.0)
+## 工程结构
 
-### 🔧 依赖更新
-- **Netty**: 4.1.39 → 4.1.108 (最新稳定版)
-- **Spring**: 4.3.24 → 5.3.39 (安全更新)
-- **Spring Boot**: 1.5.22 → 2.7.18 (LTS 版本)
-- **Maven 插件**: 更新至最新版本
-- **注册中心扩展**: 支持 Local / Redis / Zookeeper，并通过配置项统一切换
+```
+small-rpc
+├── rpc-core                        -- 核心抽象：invocation / invoker / cluster / directory / filter / loadbalance / SPI
+├── rpc-transport-netty             -- 自研协议 + Netty 传输 + Hessian 序列化 + RpcServer
+├── rpc-registry-local              -- Local 直连注册中心（SPI 实现）
+├── small-rpc-spring                -- @RpcService / @RpcReference + ReferenceBeanPostProcessor
+├── small-rpc-spring-boot-starter   -- Spring Boot 自动装配 + small-rpc.* 配置
+└── rpc-examples                    -- 示例：rpc-example-api / rpc-example-client / rpc-example-server
+```
 
-### ⚡ 性能优化
-- **线程池增强**: 更好的命名和监控能力
-- **资源管理**: 优雅关闭和超时控制
-- **连接优化**: 更好的连接池管理和错误处理
-- **Netty 配置**: 优化的 socket 选项设置
+## 快速开始
 
-### 🛡️ 可靠性提升
-- **错误处理**: 全面的异常处理和恢复机制
-- **资源清理**: 自动资源清理和内存泄漏防护
-- **参数验证**: 严格的输入参数验证
-- **日志改进**: 更详细的调试信息
+### 1. 构建项目
+
+```bash
+mvn clean package
+```
+
+### 2. 引入依赖
+
+服务端与消费方都从 starter 进入（按需再引注册中心实现）：
+
+```xml
+<dependency>
+    <groupId>io.github.upowerman</groupId>
+    <artifactId>small-rpc-spring-boot-starter</artifactId>
+    <version>1.0.0</version>
+</dependency>
+<dependency>
+    <groupId>io.github.upowerman</groupId>
+    <artifactId>rpc-registry-local</artifactId>
+    <version>1.0.0</version>
+</dependency>
+```
+
+### 3. 配置
+
+provider 应用（显式关掉 consumer 侧装配）：
+
+```yaml
+small-rpc:
+  provider:
+    rpc2-port: 7081
+  consumer:
+    enabled: false
+```
+
+consumer 应用（显式关掉 provider 侧装配，指向 provider 地址）：
+
+```yaml
+small-rpc:
+  provider:
+    enabled: false
+  registry:
+    type: local
+    param:
+      DIRECT_ADDRESS: localhost:7081
+  loadbalance: random      # 负载均衡扩展名（SPI 名），空 = SPI 默认
+```
+
+### 4. 服务实现
+
+服务类需要使用 `@RpcService` 注解（服务必须在 IoC 容器中，且只实现一个业务接口）：
+
+```java
+@Service
+@RpcService
+public class HelloServiceImpl implements HelloService {
+    @Override
+    public HelloDTO hello(String name) {
+        return new HelloDTO("Hello " + name);
+    }
+}
+```
+
+### 5. 服务调用
+
+消费方使用 `@RpcReference` 注解进行服务引用（`address` 可指定直连地址 `host:port`，空 = 走注册中心）：
+
+```java
+@RestController
+@RequestMapping("/")
+public class HelloController {
+
+    @RpcReference
+    private HelloService helloService;
+
+    @GetMapping("/hello")
+    public HelloDTO hello(String name) {
+        return helloService.hello(name);
+    }
+}
+```
+
+## SPI 扩展机制
+
+登记文件放 classpath 下 `META-INF/small-rpc/<接口全限定名>`，行格式 `扩展名=实现类全限定名`，`#` 开头为注释：
+
+```
+# META-INF/small-rpc/io.github.upowerman.core.loadbalance.LoadBalancer
+random=io.github.upowerman.core.loadbalance.RandomLoadBalancer
+roundrobin=io.github.upowerman.core.loadbalance.RoundRobinLoadBalancer
+```
+
+内置扩展点与当前实现：
+
+| 接口 | SPI 名 | 默认 |
+|---|---|---|
+| `BaseServiceRegistry`（注册中心） | local | 是（`@Spi("local")`） |
+| `Serializer`（序列化） | hessian（typeId=1） | 是 |
+| `LoadBalancer`（负载均衡） | random / roundrobin | random（`@Spi("random")`） |
+
+三个特性：
+
+- `@Spi("name")` 标注在**接口**上声明默认扩展名；
+- `@SpiInject` 字段注入该 SPI 的默认扩展（同线程环依赖大声失败）；
+- `@Adaptive("key")` 生成自适应代理：按 `attachments[key]` 选扩展再委托，键缺失走默认扩展。
+
+重名登记按 `(name, FQCN)` 去重：同一实现经多个 URL 可见（如 `target/classes` 与本地已安装 jar 同在 classpath）视为重复并忽略；同名不同实现则启动即抛 ISE。
+
+## 配置说明
+
+### 2.0 配置项
+
+| 配置项 | 默认 | 说明 |
+|---|---|---|
+| `small-rpc.provider.enabled` | true | 是否装配 provider（纯消费方应用请显式关掉） |
+| `small-rpc.provider.rpc2-port` | 7081 | RpcServer 监听端口 |
+| `small-rpc.consumer.enabled` | true | 是否装配 consumer |
+| `small-rpc.registry.type` | local | 注册中心扩展名（SPI 名） |
+| `small-rpc.registry.param.*` | — | 注册中心启动参数；local 模式放 `DIRECT_ADDRESS` |
+| `small-rpc.loadbalance` | SPI 默认 | 负载均衡扩展名，`@RpcReference.loadBalance` 未指定时生效 |
+
+Zookeeper / Redis 注册中心属 P3 规划，2.0 仅提供 Local 直连（`rpc-registry-local`）。
+
+## 运行示例
+
+1. 启动服务提供方：
+```bash
+cd rpc-examples/rpc-example-server
+mvn spring-boot:run
+```
+
+2. 启动服务消费方：
+```bash
+cd rpc-examples/rpc-example-client
+mvn spring-boot:run
+```
+
+3. 访问测试接口：
+```bash
+curl "http://localhost:8091/hello?name=World"
+```
+
+## 附录：1.x 架构与全流程详解（历史文档）
+
+> 以下两章写于 1.x，其中的类名 / 端口 / 配置键（`small-rpc-core`、`small-rpc-simple`、
+> `RpcInvokerFactory`、`RpcSpringProviderFactory`、7080 等）在 2.0 已变更，仅作 RPC 原理参考。
+> 2.0 的调用链路：业务代理 → TraceFilter → FailoverClusterInvoker
+> （directory：注册中心发现，或 `@RpcReference.address` 直连）→ LoadBalancer（SPI）
+> → RemoteInvoker → NettyTransport → RpcServer → ReflectiveInvoker → 回帧。
 
 ## 架构简图
 
@@ -81,87 +224,6 @@ flowchart LR
 ```
 
 > 说明：主调用链固定为 **Consumer 代理调用 → 注册中心发现地址 → Netty 发送请求 → Provider 反射执行 → 响应回填 future**，`local/redis/zookeeper` 仅影响“地址发现与注册”环节。
-
-## 工程结构
-
-```
-small-rpc
-├── small-rpc-core                           -- 核心模块
-├── small-rpc-simple                         -- Spring Boot 示例
-│   ├── small-rpc-sample-springboot-api      -- 接口 API JAR
-│   ├── small-rpc-sample-springboot-client   -- 调用方示例
-│   └── small-rpc-sample-springboot-server   -- 服务提供方示例
-```
-
-## 快速开始
-
-### 1. 构建项目
-
-```bash
-mvn clean package
-```
-
-### 2. 引入依赖
-
-```xml
-<dependency>
-    <groupId>io.github.upowerman</groupId>
-    <artifactId>small-rpc-core</artifactId>
-    <version>1.0.0</version>
-</dependency>
-```
-
-### 3. 服务提供方配置
-
-示例工程 `small-rpc-sample-springboot-server` 已内置统一配置类 `RpcProviderConfig`，通过配置项自动选择注册中心：
-
-```properties
-small-rpc.registry.type=local      # local | redis | zookeeper
-small-rpc.provider.port=7080
-```
-
-### 4. 服务消费方配置
-
-示例工程 `small-rpc-sample-springboot-client` 已内置统一配置类 `RpcInvokerConfig`，同样通过配置项自动选择注册中心：
-
-```properties
-small-rpc.registry.type=local      # local | redis | zookeeper
-small-rpc.registry.address=localhost:7080   # 仅 local 模式需要
-```
-
-### 5. 服务实现
-
-服务类需要使用 `@RpcService` 注解（服务必须在 IoC 容器中）：
-
-```java
-@Service
-@RpcService
-public class HelloServiceImpl implements HelloService {
-    @Override
-    public HelloDTO hello(String name) {
-        return new HelloDTO("Hello " + name);
-    }
-}
-```
-
-### 6. 服务调用
-
-消费方使用 `@RpcReference` 注解进行服务引用：
-
-```java
-@RestController
-@RequestMapping("/")
-public class HelloController {
-
-    @RpcReference
-    private HelloService helloService;
-
-    @GetMapping("/hello")
-    public HelloDTO hello(String name) {
-        return helloService.hello(name);
-    }
-}
-```
 
 ## RPC 全流程详解（入门必读）
 
@@ -342,110 +404,15 @@ P-->>B: 返回 result / 抛出 RpcException
 
 所以你可以把注册中心理解为“**地址簿插件**”，而不是调用流程本身。
 
-## 配置说明
-
-### 线程池配置
-
-```properties
-# 核心线程数
-small-rpc.provider.core-pool-size=10
-# 最大线程数  
-small-rpc.provider.max-pool-size=20
-# 服务端口
-small-rpc.provider.port=8080
-```
-
-### 注册中心配置
-
-```properties
-# 注册中心类型: local | redis | zookeeper
-small-rpc.registry.type=local
-# local 模式下直连地址(consumer)
-small-rpc.registry.address=localhost:8080
-```
-
-```properties
-# redis 模式
-small-rpc.registry.type=redis
-small-rpc.redis.host=localhost
-small-rpc.redis.port=6379
-small-rpc.redis.password=
-small-rpc.redis.database=0
-small-rpc.redis.timeout=2000
-```
-
-```properties
-# zookeeper 模式
-small-rpc.registry.type=zookeeper
-small-rpc.zookeeper.connect-string=localhost:2181
-small-rpc.zookeeper.namespace=small-rpc
-small-rpc.zookeeper.base-path=/services
-small-rpc.zookeeper.session-timeout=60000
-small-rpc.zookeeper.connection-timeout=15000
-```
-
-### Redis 模式运行
-
-1. 启动 Redis：
-```bash
-docker run -d --name redis -p 6379:6379 redis:latest
-```
-
-2. 启动 provider：
-```bash
-cd small-rpc-simple/small-rpc-sample-springboot-server
-mvn spring-boot:run -Dspring-boot.run.arguments="--small-rpc.registry.type=redis"
-```
-
-3. 启动 consumer：
-```bash
-cd small-rpc-simple/small-rpc-sample-springboot-client
-mvn spring-boot:run -Dspring-boot.run.arguments="--small-rpc.registry.type=redis"
-```
-
-### Zookeeper 模式运行
-
-1. 启动 Zookeeper：
-```bash
-docker run -d --name zookeeper -p 2181:2181 zookeeper:3.9
-```
-
-2. 启动 provider：
-```bash
-cd small-rpc-simple/small-rpc-sample-springboot-server
-mvn spring-boot:run -Dspring-boot.run.arguments="--small-rpc.registry.type=zookeeper"
-```
-
-3. 启动 consumer：
-```bash
-cd small-rpc-simple/small-rpc-sample-springboot-client
-mvn spring-boot:run -Dspring-boot.run.arguments="--small-rpc.registry.type=zookeeper"
-```
-
-## 运行示例
-
-1. 启动服务提供方：
-```bash
-cd small-rpc-simple/small-rpc-sample-springboot-server
-mvn spring-boot:run
-```
-
-2. 启动服务消费方：
-```bash
-cd small-rpc-simple/small-rpc-sample-springboot-client  
-mvn spring-boot:run
-```
-
-使用 Redis 或 Zookeeper 时，在配置文件中把 `small-rpc.registry.type` 改成 `redis` 或 `zookeeper`，或通过启动参数覆盖。
-
-3. 访问测试接口：
-```bash
-curl http://localhost:8081/hello?name=World
-```
-
 ## 版本历史
 
-### v1.2.0 (最新版本)
+### 2.0.0 (P2，当前版本)
+- ✅ 多模块拆分：rpc-core 只依赖 slf4j-api；协议 / Netty / Hessian 迁入 rpc-transport-netty
+- ✅ 自研 SPI 三特性：`@Spi` 默认扩展、`@SpiInject` 注入（环检测）、`@Adaptive` 自适应分发
+- ✅ Spring Boot starter 自动装配：`small-rpc.*` 配置驱动，样例纯 2.0
+- ✅ `@RpcReference.address` 直连（1.x 能力回归），`small-rpc.loadbalance` 配置生效
+
+### v1.2.0
 - ✅ 新增 Zookeeper 注册中心实现
 - ✅ 注册中心统一改为配置驱动选择：`local | redis | zookeeper`
 - ✅ 示例工程配置简化为单入口（provider/client 统一配置方式）

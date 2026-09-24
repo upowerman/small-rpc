@@ -14,6 +14,7 @@ import java.util.TreeSet;
 public class PullServiceDirectory implements ServiceDirectory {
 
     private final BaseServiceRegistry registry;
+    /** 2.0 无版本路由语义：消费端装配恒传 null，makeServiceKey 的 #version 分支为 P3 预留 */
     private final String version;
 
     public PullServiceDirectory(BaseServiceRegistry registry, String version) {
