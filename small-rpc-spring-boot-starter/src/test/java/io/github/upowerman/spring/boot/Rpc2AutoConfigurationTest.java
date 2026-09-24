@@ -2,7 +2,9 @@ package io.github.upowerman.spring.boot;
 
 import io.github.upowerman.annotation.RpcReference;
 import io.github.upowerman.annotation.RpcService;
-import io.github.upowerman.core.registry.BaseServiceRegistry;
+import io.github.upowerman.core.directory.ServiceInstance;
+import io.github.upowerman.core.registry.Registry;
+import io.github.upowerman.core.registry.ServiceListener;
 import io.github.upowerman.core.serialize.SerializerRegistry;
 import io.github.upowerman.core.server.RpcServer;
 import io.github.upowerman.core.spi.SpiLoader;
@@ -96,8 +98,8 @@ public class Rpc2AutoConfigurationTest {
 
     @Test
     public void contextCloseDoesNotStopProcessLevelRegistrySingleton() {
-        // SPI 扩展是进程级单例，跨 Spring 上下文共享；上下文关闭若把它 stop 掉，
-        // 同一 JVM 的第二个上下文的地址表会被清空（LocalServiceRegistry.stop 会 clear）
+        // SPI 扩展是进程级单例，跨 Spring 上下文共享；上下文关闭若把它 destroy 掉，
+        // 同一 JVM 的第二个上下文的地址表会被清空（LocalServiceRegistry.destroy 会 clear）
         ConfigurableApplicationContext context = new SpringApplicationBuilder(TestApp.class)
                 .web(WebApplicationType.NONE)
                 .properties("small-rpc.provider.enabled=false",
@@ -106,9 +108,16 @@ public class Rpc2AutoConfigurationTest {
                 .run();
         context.close();
 
-        BaseServiceRegistry singleton = SpiLoader.of(BaseServiceRegistry.class).getExtension("local");
+        Registry singleton = SpiLoader.of(Registry.class).getExtension("local");
+        final java.util.List<java.util.List<ServiceInstance>> received = new java.util.ArrayList<java.util.List<ServiceInstance>>();
+        singleton.subscribe("io.github.upowerman.service.HelloService", new ServiceListener() {
+            @Override
+            public void onChange(java.util.List<ServiceInstance> instances) {
+                received.add(instances);
+            }
+        });
         assertFalse("上下文关闭不应清空进程级 SPI 单例的地址表",
-                singleton.discovery("io.github.upowerman.service.HelloService").isEmpty());
+                received.isEmpty() || received.get(0).isEmpty());
     }
 
     @Test

@@ -1,14 +1,16 @@
 package io.github.upowerman.spring;
 
-import io.github.upowerman.core.registry.BaseServiceRegistry;
+import io.github.upowerman.core.directory.ServiceInstance;
+import io.github.upowerman.core.registry.Registry;
+import io.github.upowerman.core.registry.ServiceListener;
 
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeSet;
 
-public class LocalServiceRegistryForTest implements BaseServiceRegistry {
+public class LocalServiceRegistryForTest implements Registry {
 
     private final TreeSet<String> directAddress;
 
@@ -21,35 +23,38 @@ public class LocalServiceRegistryForTest implements BaseServiceRegistry {
     }
 
     @Override
-    public void start(Map<String, String> param) {
+    public void init(Map<String, String> param) {
     }
 
     @Override
-    public void stop() {
+    public void destroy() {
         directAddress.clear();
     }
 
     @Override
-    public boolean registry(Set<String> keys, String value) {
-        return false;
-    }
-
-    @Override
-    public boolean remove(Set<String> keys, String value) {
-        return false;
-    }
-
-    @Override
-    public Map<String, TreeSet<String>> discovery(Set<String> keys) {
-        Map<String, TreeSet<String>> result = new HashMap<String, TreeSet<String>>();
-        for (String key : keys) {
-            result.put(key, directAddress);
+    public void register(String service, ServiceInstance instance) {
+        if (instance != null && instance.getAddress() != null) {
+            directAddress.add(instance.getAddress());
         }
-        return result;
     }
 
     @Override
-    public TreeSet<String> discovery(String key) {
-        return directAddress;
+    public void unregister(String service, ServiceInstance instance) {
+        if (instance != null && instance.getAddress() != null) {
+            directAddress.remove(instance.getAddress());
+        }
+    }
+
+    @Override
+    public void subscribe(String service, ServiceListener listener) {
+        List<ServiceInstance> instances = new ArrayList<ServiceInstance>();
+        for (String addr : directAddress) {
+            instances.add(new ServiceInstance(addr));
+        }
+        listener.onChange(instances);
+    }
+
+    @Override
+    public void unsubscribe(String service, ServiceListener listener) {
     }
 }

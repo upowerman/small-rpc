@@ -3,7 +3,7 @@ package io.github.upowerman.spring.boot;
 import io.github.upowerman.core.serialize.Serializer;
 import io.github.upowerman.core.spi.SpiLoader;
 import io.github.upowerman.core.transport.NettyTransport;
-import io.github.upowerman.core.registry.BaseServiceRegistry;
+import io.github.upowerman.core.registry.Registry;
 import io.github.upowerman.spring.ReferenceBeanPostProcessor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -32,20 +32,20 @@ public class Rpc2ConsumerAutoConfiguration {
 
     /**
      * SPI 扩展是进程级单例，跨 Spring 上下文共享，因此这里<b>不挂 destroyMethod</b>：
-     * 上下文关闭若把注册中心 stop 掉，同一 JVM 里第二个上下文的地址表会被清空。
+     * 上下文关闭若把注册中心 destroy 掉，同一 JVM 里第二个上下文的地址表会被清空。
      * 带连接的注册中心（P3 ZK/Redis）需要独立的上下文级生命周期设计，届时再定。
      */
     @Bean
-    public BaseServiceRegistry rpc2Registry(Rpc2Properties properties) {
-        BaseServiceRegistry registry = SpiLoader.of(BaseServiceRegistry.class)
+    public Registry rpc2Registry(Rpc2Properties properties) {
+        Registry registry = SpiLoader.of(Registry.class)
                 .getExtension(properties.getRegistry().getType());
-        registry.start(properties.getRegistry().getParam());
+        registry.init(properties.getRegistry().getParam());
         return registry;
     }
 
     @Bean
     public ReferenceBeanPostProcessor referenceBeanPostProcessor(NettyTransport nettyTransport,
-                                                                 BaseServiceRegistry rpc2Registry,
+                                                                 Registry rpc2Registry,
                                                                  Rpc2Properties properties) {
         // small-rpc.loadbalance 在此进入链路：注解未指定时作为缺省负载均衡扩展名
         return new ReferenceBeanPostProcessor(nettyTransport, rpc2Registry, properties.getLoadBalance());
