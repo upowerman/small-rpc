@@ -21,6 +21,11 @@
             <version>1.0.0</version>
         </dependency>
         <dependency>
+            <groupId>io.github.upowerman</groupId>
+            <artifactId>rpc-transport-netty</artifactId>
+            <version>1.0.0</version>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-autoconfigure</artifactId>
             <version>${spring-boot.version}</version>

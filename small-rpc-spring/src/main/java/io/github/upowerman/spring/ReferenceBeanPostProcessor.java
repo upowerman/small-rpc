@@ -10,7 +10,7 @@ import io.github.upowerman.core.loadbalance.LoadBalancer;
 import io.github.upowerman.core.proxy.RpcProxyFactory;
 import io.github.upowerman.core.spi.SpiLoader;
 import io.github.upowerman.core.transport.Transport;
-import io.github.upowerman.registry.BaseServiceRegistry;
+import io.github.upowerman.core.registry.BaseServiceRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;

@@ -17,7 +17,7 @@
     <dependencies>
         <dependency>
             <groupId>io.github.upowerman</groupId>
-            <artifactId>small-rpc-core</artifactId>
+            <artifactId>rpc-core</artifactId>
             <version>1.0.0</version>
         </dependency>
         <dependency>
