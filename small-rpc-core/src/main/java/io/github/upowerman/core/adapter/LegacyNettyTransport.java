@@ -25,7 +25,11 @@ import java.util.concurrent.ConcurrentMap;
  * 建连、{@link NettyConnectClient#send} 发送，保证响应经由本实例自己的
  * {@link PendingRequests} + {@link RpcInvokerFactory} 路由回来，且序列化器就是构造时传入的那个。
  * 连接池随 {@link #close()} 一并释放。
+ *
+ * @deprecated P1 起由 2.0 自研协议栈替代（{@link io.github.upowerman.core.transport.NettyTransport} /
+ * {@link io.github.upowerman.core.server.RpcServer}）。P2 拆多模块时移除本类及 1.x 桥接。
  */
+@Deprecated
 public class LegacyNettyTransport implements Transport {
 
     /** 兜底默认单请求超时（毫秒）。当调用未显式携带 ATTACH_TIMEOUT 时使用。 */

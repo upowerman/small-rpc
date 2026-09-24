@@ -3,6 +3,10 @@ package io.github.upowerman.core.serialize;
 /**
  * 适配 1.x HessianSerializer。P2 拆模块时本类搬入 rpc-transport-netty
  * 并直接基于 HessianInput/HessianOutput 重写，不再走 delegate。
+ * <p>
+ * 注意：委托的 1.x Hessian 反序列化忽略 {@code clazz} 参数，类型防线在调用方的强制转型
+ * （见 ServerHandler/ResponseHandler）。P2 拆模块时本类基于 HessianInput/HessianOutput
+ * 重写并搬入 rpc-transport-netty。
  */
 public class LegacyHessianSerializer implements Serializer {
 
