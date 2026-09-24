@@ -23,7 +23,11 @@ import java.util.concurrent.CompletableFuture;
  * {@link RpcInvokerFactory} future 池移除 BridgingFuture——超时由
  * {@link PendingRequests#register(long, long)} 自行兜底，发送抛异常由
  * {@link #request(Invocation)} 直接结算捕获，两者都不再泄漏。
+ *
+ * @deprecated P1 起由 2.0 自研协议栈替代（{@link io.github.upowerman.core.transport.NettyTransport} /
+ * {@link io.github.upowerman.core.server.RpcServer}）。P2 拆多模块时移除本类及 1.x 桥接。
  */
+@Deprecated
 final class LegacyConnection implements Connection {
 
     private final ConnectClient client;

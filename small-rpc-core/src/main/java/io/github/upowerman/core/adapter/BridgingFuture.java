@@ -12,7 +12,11 @@ import io.github.upowerman.net.base.RpcResponse;
 /**
  * RpcFutureResponse 子类：构造时自注册进 1.x future 池（super 副作用），
  * 响应到达时把结果桥接给新链路的 PendingRequests。
+ *
+ * @deprecated P1 起由 2.0 自研协议栈替代（{@link io.github.upowerman.core.transport.NettyTransport} /
+ * {@link io.github.upowerman.core.server.RpcServer}）。P2 拆多模块时移除本类及 1.x 桥接。
  */
+@Deprecated
 final class BridgingFuture extends RpcFutureResponse {
 
     private final long requestId;
