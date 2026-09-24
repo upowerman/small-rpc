@@ -240,6 +240,12 @@
                             <publishingServerId>central</publishingServerId>
                             <autoPublish>true</autoPublish>
                             <waitUntil>published</waitUntil>
+                            <excludeArtifacts>
+                                <excludeArtifact>rpc-examples</excludeArtifact>
+                                <excludeArtifact>rpc-example-api</excludeArtifact>
+                                <excludeArtifact>rpc-example-client</excludeArtifact>
+                                <excludeArtifact>rpc-example-server</excludeArtifact>
+                            </excludeArtifacts>
                         </configuration>
                     </plugin>
                     <plugin>
