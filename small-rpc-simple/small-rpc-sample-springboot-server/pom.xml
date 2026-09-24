@@ -37,6 +37,11 @@
         </dependency>
         <dependency>
             <groupId>io.github.upowerman</groupId>
+            <artifactId>small-rpc-spring-boot-starter</artifactId>
+            <version>1.0.0</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.upowerman</groupId>
             <artifactId>small-rpc-sample-springboot-api</artifactId>
             <version>${project.parent.version}</version>
         </dependency>

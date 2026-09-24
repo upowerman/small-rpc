@@ -1,0 +1,2 @@
+io.github.upowerman.spring.boot.Rpc2ProviderAutoConfiguration
+io.github.upowerman.spring.boot.Rpc2ConsumerAutoConfiguration

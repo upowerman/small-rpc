@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit;
  *
  * @author gaoyunfeng
  */
-public class RedisServiceRegistry extends BaseServiceRegistry {
+public class RedisServiceRegistry implements BaseServiceRegistry {
 
     private static final Logger logger = LoggerFactory.getLogger(RedisServiceRegistry.class);
 

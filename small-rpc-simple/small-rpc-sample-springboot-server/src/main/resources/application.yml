@@ -5,23 +5,8 @@ spring:
   application:
     name: hello-service-provider
 
-# 配置small rpc
 small-rpc:
   provider:
-    port: 7080
-    # 2.0 自研协议栈端口（与 1.x 端口并存，互不共享 pipeline）
     rpc2-port: 7081
-  registry:
-    type: local
-  redis:
-    host: localhost
-    port: 6379
-    password:
-    database: 0
-    timeout: 2000
-  zookeeper:
-    connect-string: localhost:2181
-    namespace: small-rpc
-    base-path: /services
-    session-timeout: 60000
-    connection-timeout: 15000
+  consumer:
+    enabled: false    # provider 应用不起 consumer 侧装配（Ruling 6）
