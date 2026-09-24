@@ -43,7 +43,7 @@
 - Consumes: 无
 - Produces: 根 pom 作为 parent（`io.github.upowerman:small-rpc:1.0.0`，relativePath 默认 `../pom.xml`），提供 `<properties>`（各依赖版本）与 `<dependencyManagement>`（内部模块 + 三方依赖）；子模块 pom 不再写 `groupId`/`version`/依赖版本。
 
-- [ ] **Step 1: 改写根 pom 为 parent**
+- [x] **Step 1: 改写根 pom 为 parent**
 
 保留现有 `<modules>` 六项，新增 `<properties>` 与 `<dependencyManagement>`：
 
@@ -87,7 +87,7 @@
 
 spring-boot 统一用 BOM import：`<type>pom</type><scope>import</scope>` 引 `org.springframework.boot:spring-boot-dependencies:${spring-boot.version}`（若既有子模块 pom 已逐个写 spring 依赖版本，改为不写版本，由 BOM 管）。
 
-- [ ] **Step 2: 改写六个子模块 pom**
+- [x] **Step 2: 改写六个子模块 pom**
 
 每个子模块 pom：删 `groupId`/`version`（保留 `artifactId`），加：
 
@@ -101,17 +101,17 @@ spring-boot 统一用 BOM import：`<type>pom</type><scope>import</scope>` 引 `
 
 删各模块 `<properties>` 里重复的 compiler/sourceEncoding 项（继承 parent），删依赖里的 `<version>`（由 dependencyManagement 管）。`rpc-examples` 及其三子模块同样处理。
 
-- [ ] **Step 3: 验证等价构建**
+- [x] **Step 3: 验证等价构建**
 
 Run: `mvn test -q -Dgpg.skip=true`
 Expected: BUILD SUCCESS，135 测试全绿（数量与基线一致）。
 
-- [ ] **Step 4: 验证版本集中生效（防「改了没生效」）**
+- [x] **Step 4: 验证版本集中生效（防「改了没生效」）**
 
 Run: `mvn help:evaluate -Dexpression=project.version -q -DforceStdout -pl rpc-core` → 输出 `1.0.0`；
 Run: `mvn dependency:tree -pl rpc-core | grep -E "slf4j-api|junit"` → 版本分别为 1.7.36 / 4.13.2（证明由 parent 管）。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add pom.xml rpc-core/pom.xml rpc-transport-netty/pom.xml rpc-registry-local/pom.xml small-rpc-spring/pom.xml small-rpc-spring-boot-starter/pom.xml rpc-examples/pom.xml rpc-examples/rpc-example-api/pom.xml rpc-examples/rpc-example-client/pom.xml rpc-examples/rpc-example-server/pom.xml
@@ -144,11 +144,11 @@ git commit -m "build(rpc2): 根 pom 转 parent + dependencyManagement 收敛版�
   - `class CachingServiceDirectory implements ServiceDirectory`：`CachingServiceDirectory(Registry registry)`
   - `ReferenceBeanPostProcessor(Transport, Registry, String defaultLoadBalance)`（第二参类型变更）
 
-- [ ] **Step 1: 写 Registry 与 ServiceListener**
+- [x] **Step 1: 写 Registry 与 ServiceListener**
 
 `Registry` 带 `@Spi("local")`（默认扩展名 local）。javadoc 写明：实现是**进程级 SPI 单例**，`init` 幂等或大声失败须明确（实现者选一种并在 javadoc 注明）；`destroy` 幂等；`subscribe` 建立时立即推当前全量；推送线程中 listener 抛异常不得影响注册中心自身状态。
 
-- [ ] **Step 2: 写 CachingServiceDirectory 的失败测试**
+- [x] **Step 2: 写 CachingServiceDirectory 的失败测试**
 
 覆盖（每条一个 `@Test`）：
 1. 未订阅 → `list` 返回空列表（不是 null）；
@@ -160,25 +160,25 @@ git commit -m "build(rpc2): 根 pom 转 parent + dependencyManagement 收敛版�
 
 Run: `mvn test -q -Dgpg.skip=true -pl rpc-core` → 预期编译失败（类不存在）。
 
-- [ ] **Step 3: 实现 CachingServiceDirectory**
+- [x] **Step 3: 实现 CachingServiceDirectory**
 
 `ConcurrentHashMap<String, List<ServiceInstance>>` 缓存 + `ConcurrentHashMap.newKeySet()` 已订阅集合；`list` 读缓存（缺省 `Collections.emptyList()`）；`subscribe` 幂等（`add` 成功才真订阅）；内部 `ServiceListener` 的 `onChange` **整体 try/catch**（catch Throwable → `logger.warn` 保留旧值，即降级）；缓存写入 `Collections.unmodifiableList(new ArrayList<>(instances))`（copy-on-write，读无锁）。
 
 Run: `mvn test -q -Dgpg.skip=true -pl rpc-core` → 预期 Step 2 的测试全绿。
 
-- [ ] **Step 4: 重写 LocalServiceRegistry 的失败测试**
+- [x] **Step 4: 重写 LocalServiceRegistry 的失败测试**
 
 覆盖：`init` 读 `DIRECT_ADDRESS`；`register` 后 `subscribe` 立即收到全量；register/unregister 触发已订阅 listener 的推送；`DIRECT_ADDRESS` 非空时任意 service 的订阅快照都含它（样例兼容语义）；`unsubscribe` 后不再收到推送；`destroy` 清空且幂等（二次调用不抛）。
 
 Run: `mvn test -q -Dgpg.skip=true -pl rpc-registry-local` → 预期编译失败（旧测试引旧接口）。
 
-- [ ] **Step 5: 重写 LocalServiceRegistry**
+- [x] **Step 5: 重写 LocalServiceRegistry**
 
 `ConcurrentHashMap<String, Set<String>>`（service → addresses）+ `ConcurrentHashMap<String, List<ServiceListener>>`；`register/unregister` 改 Map 后遍历 notify（同步，单测简单）；`subscribe` 加 listener 并立即推一次快照；`DIRECT_ADDRESS` 保留语义；`destroy` 清两个 Map（幂等）。删旧 META-INF 登记文件，新增 `META-INF/small-rpc/io.github.upowerman.core.registry.Registry`，内容一行：`local=io.github.upowerman.core.registry.local.LocalServiceRegistry`。
 
 Run: `mvn test -q -Dgpg.skip=true -pl rpc-registry-local` → 全绿。
 
-- [ ] **Step 6: 全链切换（删旧接口后的连锁编译）**
+- [x] **Step 6: 全链切换（删旧接口后的连锁编译）**
 
 - 删 `BaseServiceRegistry.java`、`PullServiceDirectory.java`；
 - `ReferenceBeanPostProcessor`：字段/构造第二参改 `Registry`；`resolveDirectory` 从 `new PullServiceDirectory(registry, null)` 改 `new CachingServiceDirectory(registry)`，并在返回前对 `iface.getName()` 调一次 `subscribe`（**消费端订阅点**）；
@@ -187,11 +187,11 @@ Run: `mvn test -q -Dgpg.skip=true -pl rpc-registry-local` → 全绿。
 
 Run: `mvn test -q -Dgpg.skip=true`（根聚合）→ 全绿，测试数 ≥ 135（新增 Step 2/4 的用例）。
 
-- [ ] **Step 7: local 直连样例回归（防行为回退）**
+- [x] **Step 7: local 直连样例回归（防行为回退）**
 
 起 server（8090/7081）+ client（8091），`curl "http://127.0.0.1:8091/rpc2/hello?name=p3"` → HTTP 200 且 JSON 正确；`lsof -i :7080` 无监听；验完 kill 精确 PID 并确认端口释放。（起停命令与 P2 T6 相同；用 `lsof -ti :7081 -ti :8091` 取 PID。）
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add rpc-core/src/main/java/io/github/upowerman/core/registry/Registry.java rpc-core/src/main/java/io/github/upowerman/core/registry/ServiceListener.java rpc-core/src/main/java/io/github/upowerman/core/directory/CachingServiceDirectory.java rpc-core/src/test/java/io/github/upowerman/core/directory/CachingServiceDirectoryTest.java rpc-registry-local/src/main/java/io/github/upowerman/core/registry/local/LocalServiceRegistry.java rpc-registry-local/src/test/java/io/github/upowerman/core/registry/local/LocalServiceRegistryTest.java rpc-registry-local/src/main/resources/META-INF/small-rpc/io.github.upowerman.core.registry.Registry small-rpc-spring/src/main/java/io/github/upowerman/spring/ReferenceBeanPostProcessor.java small-rpc-spring-boot-starter/src/main/java/io/github/upowerman/spring/boot/Rpc2ConsumerAutoConfiguration.java
@@ -214,13 +214,13 @@ git commit -m "feat(rpc2): Registry 订阅抽象 + CachingServiceDirectory 缓�
 - Consumes: Task 2 的 `Registry` / `ServiceListener` / `ServiceInstance`
 - Produces: `ZookeeperRegistry implements Registry`，SPI 名 **`zookeeper`**；param 键：`zk.connect`（必填）、`zk.namespace`（默认 `small-rpc`）、`zk.session-timeout-ms`（默认 10000）、`zk.connection-timeout-ms`（默认 3000）
 
-- [ ] **Step 1: 建模块骨架**
+- [x] **Step 1: 建模块骨架**
 
 pom：parent 指根 pom；依赖 `rpc-core` + `org.apache.curator:curator-framework:${curator.version}` + `org.apache.curator:curator-recipes:${curator.version}`（PathChildrenCache 在 recipes）+ junit(test)。根 pom `<modules>` 加一项。
 
 Run: `mvn test -q -Dgpg.skip=true -pl rpc-registry-zookeeper -am`（注意：`-am` 必须带，否则从本地仓库解析旧 rpc-core jar）。
 
-- [ ] **Step 2: 写失败测试（Assume 探测）**
+- [x] **Step 2: 写失败测试（Assume 探测）**
 
 ```java
 @Before
@@ -237,18 +237,18 @@ public void assumeZkAvailable() {
 
 Run: `mvn test -q -Dgpg.skip=true -pl rpc-registry-zookeeper -am` → 预期编译失败。
 
-- [ ] **Step 3: 实现 ZookeeperRegistry**
+- [x] **Step 3: 实现 ZookeeperRegistry**
 
 节点布局 `/{namespace}/{service}/instances/{address}`（`{service}`/`instances` 持久，`{address}` EPHEMERAL）。`init`：`CuratorFrameworkFactory.builder().connectString(connect).namespace(namespace).sessionTimeoutMs(...).connectionTimeoutMs(...).retryPolicy(new ExponentialBackoffRetry(1000, 3)).build()` + `start()`；`register`：`create().creatingParentsIfNeeded().withMode(EPHEMERAL).forPath(...)`；`subscribe`：`PathChildrenCache`（`start(true)` 触发初始全量）+ 回调里全量列举子节点 → `listener.onChange`（**回调内 try/catch，绝不让异常污染 Curator 线程**）；`destroy`：关所有 cache + `client.close()`（幂等）。
 
 META-INF 登记：`zookeeper=io.github.upowerman.core.registry.zookeeper.ZookeeperRegistry`。
 
-- [ ] **Step 4: 跑通并验证隔离**
+- [x] **Step 4: 跑通并验证隔离**
 
 Run: `mvn test -q -Dgpg.skip=true -pl rpc-registry-zookeeper -am` → 全绿（或 Assume 跳过并可见）。
 验证无残留：用 `docker exec <zk容器> zkCli.sh -server localhost:2181 ls /` 确认 `small-rpc-test-*` 节点在 destroy 后为空（临时节点随会话关闭消失；持久父节点可能残留，测试的 `@After` 应删除自己 namespace 的根节点）。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add rpc-registry-zookeeper/pom.xml rpc-registry-zookeeper/src pom.xml
@@ -270,28 +270,28 @@ git commit -m "feat(rpc2): rpc-registry-zookeeper — EPHEMERAL 实例节点 + P
 - Consumes: Task 2 的 `Registry` / `ServiceListener` / `ServiceInstance`
 - Produces: `RedisRegistry implements Registry`，SPI 名 **`redis`**；param 键：`redis.host`（默认 localhost）、`redis.port`（默认 6379）、`redis.database`（默认 0）、`redis.timeout-ms`（默认 2000）、`redis.password`（可选）、`redis.key-prefix`（默认 `small-rpc`）、`redis.poll-interval-ms`（默认 3000）
 
-- [ ] **Step 1: 建模块骨架**
+- [x] **Step 1: 建模块骨架**
 
 pom：parent 指根 pom；依赖 `rpc-core` + `redis.clients:jedis:${jedis.version}` + junit(test)。根 pom `<modules>` 加一项。
 
 Run: `mvn test -q -Dgpg.skip=true -pl rpc-registry-redis -am`。
 
-- [ ] **Step 2: 写失败测试（Assume PING 探测）**
+- [x] **Step 2: 写失败测试（Assume PING 探测）**
 
 探测：`Jedis` 连接 127.0.0.1:6379 `ping()` 失败 → `Assume.assumeTrue(..., false)`。随机 key 前缀 `"small-rpc-test-" + UUID.randomUUID()`。覆盖：`init` → `register` → `subscribe` 立即收到 1 个；注册第二实例 → **轮询周期内**收到 2 个（用 `Awaitility` 不引入——用轮询等待循环，超时 5s）；`unregister` → 收到 1 个；`unsubscribe` 后不再推送；`destroy` 幂等且**不留存活线程**（断言调度线程数回落或线程名不可见）。
 
-- [ ] **Step 3: 实现 RedisRegistry**
+- [x] **Step 3: 实现 RedisRegistry**
 
 数据结构 `{key-prefix}:registry:{service}` → Set（member=address）。`init`：`JedisPool` + `ScheduledExecutorService`（守护线程，单线程）；`register/unregister`：SADD/SREM；`subscribe`：登记 listener + 立即 `SMEMBERS` 推一次 + 启动该 service 的轮询任务（按 `poll-interval-ms` 比对上次快照，有差异才 `onChange`；**快照比对与推送在调度线程内，用 synchronized 保护同一 service 的状态**）；`unsubscribe`：移除 listener，最后一个 listener 移除时取消该 service 的轮询任务；`destroy`：停调度（`shutdownNow` + awaitTermination）+ `pool.close()`（幂等）。
 
 META-INF 登记：`redis=io.github.upowerman.core.registry.redis.RedisRegistry`。
 
-- [ ] **Step 4: 跑通并验证隔离**
+- [x] **Step 4: 跑通并验证隔离**
 
 Run: `mvn test -q -Dgpg.skip=true -pl rpc-registry-redis -am` → 全绿（或 Assume 跳过）。
 验证无残留：`docker exec <redis容器> redis-cli keys 'small-rpc-test-*'` → 空（`@After` 清理）。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add rpc-registry-redis/pom.xml rpc-registry-redis/src pom.xml
@@ -315,27 +315,27 @@ git commit -m "feat(rpc2): rpc-registry-redis — Set 注册表 + 轮询比对�
 - Consumes: `Registry`（Task 2）、`ZookeeperRegistry`/`RedisRegistry`（Task 3/4，SPI 名 `zookeeper`/`redis`）
 - Produces: provider 侧注册（`RpcServer.start()` 后对每个服务接口 `registry.register(iface, new ServiceInstance(selfAddress))`）；`small-rpc.provider.address`（空 = 自动探测本机 IP）；样例 profile。
 
-- [ ] **Step 1: 写 provider 注册的失败测试**
+- [x] **Step 1: 写 provider 注册的失败测试**
 
 用 `ServerSocket(0)` 取空闲端口 + `SpringApplicationBuilder(...).web(WebApplicationType.NONE)` 起上下文（模板见既有 `Rpc2AutoConfigurationTest`），`small-rpc.registry.type=local`，断言：上下文启动后 `LocalServiceRegistry` 里该服务接口已注册本实例地址（通过注入的 `Registry` bean 调 `subscribe` 立即收到的快照断言）。
 
 Run: `mvn test -q -Dgpg.skip=true -pl small-rpc-spring-boot-starter -am` → 预期失败（未注册）。
 
-- [ ] **Step 2: 实现 provider 注册**
+- [x] **Step 2: 实现 provider 注册**
 
 `Rpc2ProviderAutoConfiguration`：注入 `Registry`（`@ConditionalOnMissingBean(Registry.class)` 提供者用 `SpiLoader.of(Registry.class).getExtension(type)` + `init(param)`，**与 consumer 侧同源**——注意两处 AutoConfiguration 可能同时生效，bean 定义需 `@ConditionalOnMissingBean` 防重复 init）；`rpc2Server` bean 在 `server.start()` 后对每个已注册接口调 `registry.register(iface.getName(), new ServiceInstance(selfAddress))`。`selfAddress` 解析：`small-rpc.provider.address` 非空则用之，否则 `InetAddress.getLocalHost().getHostAddress() + ":" + rpc2Port`（**多网卡环境用本键覆盖**，Review Focus 5）。
 
 Run: 同 Step 1 → 全绿。
 
-- [ ] **Step 3: 样例 profile 与演示步骤**
+- [x] **Step 3: 样例 profile 与演示步骤**
 
 `application-zookeeper.yml`（server）：`small-rpc.registry.type: zookeeper` + `param.zk.connect: localhost:2181`；client 同 + `small-rpc.consumer.enabled: true`、`provider.enabled: false`。`application-redis.yml` 同形（`param.redis.host/port`）。README 写清多实例演示：两台 server（`--server.port=8090 --small-rpc.provider.rpc2-port=7081` 与 `8092/7082`）→ client → kill 一台 → 观察调用仍成功。
 
-- [ ] **Step 4: starter 不引注册中心实现依赖（口径钉死）**
+- [x] **Step 4: starter 不引注册中心实现依赖（口径钉死）**
 
 `small-rpc-spring-boot-starter` **不得** compile 依赖 `rpc-registry-zookeeper`/`rpc-registry-redis`（保持 starter thin：由使用方按需引入实现模块，SPI 在 classpath 上发现）。样例的 server/client pom 各自加 `rpc-registry-zookeeper` + `rpc-registry-redis` 依赖（compile），使两个 profile 都能跑。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add small-rpc-spring-boot-starter/src small-rpc-spring-boot-starter/pom.xml rpc-examples/rpc-example-server/src/main/resources rpc-examples/rpc-example-client/src/main/resources rpc-examples/rpc-example-server/pom.xml rpc-examples/rpc-example-client/pom.xml README.md
@@ -352,27 +352,27 @@ git commit -m "feat(rpc2): provider 注册进 Registry + starter registry.type �
 
 **Interfaces:** Consumes 前五个任务的产物；Produces 验收证据与文档。
 
-- [ ] **Step 1: 根聚合全量回归**
+- [x] **Step 1: 根聚合全量回归**
 
 Run: `mvn test -q -Dgpg.skip=true` → BUILD SUCCESS；记录测试总数（含 Assume 跳过数，用 `find . -path "*/surefire-reports/*.txt" -exec grep -h "Tests run" {} \;` 聚合）。
 
-- [ ] **Step 2: local 直连回归**（P2 行为不回退）
+- [x] **Step 2: local 直连回归**（P2 行为不回退）
 
 起 server/client（默认 profile）→ `curl "http://127.0.0.1:8091/rpc2/hello?name=p3"` → 200 + JSON 正确；7080 无监听；端口释放。
 
-- [ ] **Step 3: ZK 多实例验收**
+- [x] **Step 3: ZK 多实例验收**
 
 两台 server（7081/7082，`--spring.profiles.active=zookeeper`）+ client → 连续 curl 20 次，日志显示调用分布在两台 → `kill` 7081 → 等 ZK session 超时（≤10s）→ 再 curl 20 次**全部成功**且全落 7082。记录证据（日志片段/curl 结果统计）。
 
-- [ ] **Step 4: Redis 多实例验收**
+- [x] **Step 4: Redis 多实例验收**
 
 同 Step 3 用 `--spring.profiles.active=redis`，kill 后等待 ≤ poll-interval + 余量（默认 3s，留 5s）→ 后续调用全落存活实例。
 
-- [ ] **Step 5: 降级验收（spec §3 的核心承诺）**
+- [x] **Step 5: 降级验收（spec §3 的核心承诺）**
 
 client 已订阅（ZK profile）→ **停掉 ZK 容器**（`docker stop <zk容器>`）→ curl 仍 200（走缓存）→ `docker start <zk容器>` → 等待重连 → 日志可见推送恢复（缓存更新）。**注意：验收后必须把容器恢复运行**（用户环境依赖）。
 
-- [ ] **Step 6: README 全量重写 + 计划勾选 + Commit**
+- [x] **Step 6: README 全量重写 + 计划勾选 + Commit**
 
 ```bash
 git add README.md docs/superpowers/plans/2026-09-24-small-rpc-2-phase3.md
