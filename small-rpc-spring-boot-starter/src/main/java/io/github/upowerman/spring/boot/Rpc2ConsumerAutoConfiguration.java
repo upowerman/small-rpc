@@ -4,7 +4,7 @@ import io.github.upowerman.core.serialize.Serializer;
 import io.github.upowerman.core.serialize.SerializerRegistry;
 import io.github.upowerman.core.spi.SpiLoader;
 import io.github.upowerman.core.transport.NettyTransport;
-import io.github.upowerman.registry.BaseServiceRegistry;
+import io.github.upowerman.core.registry.BaseServiceRegistry;
 import io.github.upowerman.spring.ReferenceBeanPostProcessor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
