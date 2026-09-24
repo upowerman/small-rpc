@@ -22,7 +22,9 @@
 
     <properties>
         <maven.deploy.skip>true</maven.deploy.skip>
-        <skipPublishing>true</skipPublishing>
+        <gpg.skip>true</gpg.skip>
+        <maven.javadoc.skip>true</maven.javadoc.skip>
+        <maven.source.skip>true</maven.source.skip>
     </properties>
 
 </project>
