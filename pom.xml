@@ -26,10 +26,13 @@
         <maven.compiler.target>1.8</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <junit.version>4.13.2</junit.version>
-        <slf4j-api.version>1.7.36</slf4j-api.version>
+        <!-- 同时用于 slf4j-api 与 slf4j-reload4j（后者不在 spring-boot-dependencies 里） -->
+        <slf4j.version>1.7.36</slf4j.version>
         <hessian.version>4.0.66</hessian.version>
         <netty.version>4.1.108.Final</netty.version>
         <spring-boot.version>2.7.18</spring-boot.version>
+        <!-- hamcrest-core 锁定版本，理由见 dependencyManagement 中该条目的注释 -->
+        <hamcrest.version>1.3</hamcrest.version>
         <!-- P3 注册中心模块使用 -->
         <curator.version>5.6.0</curator.version>
         <jedis.version>4.4.3</jedis.version>
@@ -71,7 +74,7 @@
 
             <!--
                 三方依赖：本 POM 自己的条目优先于下方 import 进来的 BOM，
-                因此 netty-all 不会被 spring-boot-dependencies 的 netty 版本覆盖。
+                因此显式登记的版本不会被 spring-boot-dependencies 覆盖。
             -->
             <dependency>
                 <groupId>junit</groupId>
@@ -81,47 +84,42 @@
             <dependency>
                 <groupId>org.slf4j</groupId>
                 <artifactId>slf4j-api</artifactId>
-                <version>${slf4j-api.version}</version>
+                <version>${slf4j.version}</version>
             </dependency>
-            <!-- slf4j-reload4j 未被 spring-boot-dependencies 管理，必须显式登记 -->
+            <!-- slf4j-reload4j 未被 spring-boot-dependencies 管理（该 BOM 只到 slf4j-log4j12），必须显式登记 -->
             <dependency>
                 <groupId>org.slf4j</groupId>
                 <artifactId>slf4j-reload4j</artifactId>
-                <version>${slf4j-api.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.slf4j</groupId>
-                <artifactId>slf4j-log4j12</artifactId>
-                <version>${slf4j-api.version}</version>
+                <version>${slf4j.version}</version>
             </dependency>
             <!--
                 hamcrest-core：junit 4.13.2 的传递依赖。spring-boot-dependencies 把它管理成 2.2，
-                而 2.2 是只含一个弃用提示类的空壳 jar（真类在 org.hamcrest:hamcrest 里），
+                而 2.2 是只含一个弃用提示类的空壳 jar（1.3 有 45 个类；真类在 org.hamcrest:hamcrest 里），
                 等于顺带把五个非 spring-boot 模块的测试栈从 Hamcrest 1.3 抬到 2.2。
-                这里锁回 junit 4.13.2 自带的 1.3，保持改造前后解析结果一致；
-                将来升级 JUnit 时一并重估此条。
+                这里锁回 junit 4.13.2 自带的 1.3，保持改造前后解析结果一致。
+                注意：删掉本条目测试仍会全绿（真类经 hamcrest 2.2 传递到达），
+                它保的是"依赖树逐字节等价"，不是测试通过——动它前先想清楚这一点。
             -->
             <dependency>
                 <groupId>org.hamcrest</groupId>
                 <artifactId>hamcrest-core</artifactId>
-                <version>1.3</version>
+                <version>${hamcrest.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.caucho</groupId>
                 <artifactId>hessian</artifactId>
                 <version>${hessian.version}</version>
             </dependency>
-            <dependency>
-                <groupId>io.netty</groupId>
-                <artifactId>netty-all</artifactId>
-                <version>${netty.version}</version>
-            </dependency>
 
             <!--
                 netty-bom：spring-boot-dependencies 内部 import 的是 netty-bom 4.1.101.Final，
-                会把它覆盖范围内的 netty-* 传递依赖拉到 4.1.101.Final，与 netty-all 4.1.108.Final
-                不一致（混合版本）。这里按 ${netty.version} 显式 import 同一份 netty-bom，
-                保证全部 netty-* 停在 4.1.108.Final。
+                会把它覆盖范围内的 netty-* 依赖拉到 4.1.101.Final。这里按 ${netty.version} 显式 import
+                同一份 netty-bom，保证全部 netty-*（含 netty-all，BOM 里没有 netty-all 条目）
+                停在 4.1.108.Final。
+
+                ⚠ 顺序敏感：本条目必须排在下方 spring-boot-dependencies <b>之前</b>。
+                import 的 BOM 之间后者覆盖前者，若顺序颠倒，27 个 netty-* 传递依赖会静默掉回
+                4.1.101.Final 与 netty-all 混版，且**构建期无任何报错**。调整本段顺序前先读此注释。
             -->
             <dependency>
                 <groupId>io.netty</groupId>

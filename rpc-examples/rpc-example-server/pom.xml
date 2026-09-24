@@ -49,7 +49,7 @@
 
     <build>
         <plugins>
-            <!-- import 进来的 BOM 不含 pluginManagement，插件版本仍需显式声明（取自 parent properties） -->
+            <!-- BOM import 只导入 dependencyManagement，不导入 pluginManagement（即便 spring-boot-dependencies 自身含），插件版本仍需显式声明（取自 parent properties） -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
