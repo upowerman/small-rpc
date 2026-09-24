@@ -26,6 +26,11 @@
             <artifactId>spring-boot-autoconfigure</artifactId>
             <scope>provided</scope>
         </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-configuration-processor</artifactId>
+            <optional>true</optional>
+        </dependency>
         <!--
             测试口径与全仓一致：JUnit 4.13.2。
             注意不要直接引入 spring-boot-starter-test（2.7 不含 junit:junit）：
@@ -37,10 +42,10 @@
             <artifactId>junit</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- 默认内置本地单机注册中心，零外部依赖，支持开箱即用 -->
         <dependency>
             <groupId>io.github.upowerman</groupId>
             <artifactId>rpc-registry-local</artifactId>
-            <scope>test</scope>
         </dependency>
     </dependencies>
 </project>
