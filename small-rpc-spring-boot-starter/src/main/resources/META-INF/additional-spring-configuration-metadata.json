@@ -1,0 +1,55 @@
+{
+  "properties": [
+    {
+      "name": "small-rpc.loadbalance",
+      "type": "java.lang.String",
+      "description": "全局负载均衡算法 SPI 名：random（随机）或 roundrobin（轮询）",
+      "defaultValue": "random"
+    }
+  ],
+  "hints": [
+    {
+      "name": "small-rpc.registry.type",
+      "values": [
+        {
+          "value": "local",
+          "description": "本地内存/直连模式（轻量免外部依赖，开发调试推荐）"
+        },
+        {
+          "value": "zookeeper",
+          "description": "ZooKeeper 分布式注册中心（生产推荐，基于 Curator 5.6.0）"
+        },
+        {
+          "value": "redis",
+          "description": "Redis 集中式注册中心（基于 Jedis 轮询心跳）"
+        }
+      ]
+    },
+    {
+      "name": "small-rpc.load-balance",
+      "values": [
+        {
+          "value": "random",
+          "description": "基于权重的随机负载均衡算法（默认）"
+        },
+        {
+          "value": "roundrobin",
+          "description": "轮询负载均衡算法"
+        }
+      ]
+    },
+    {
+      "name": "small-rpc.loadbalance",
+      "values": [
+        {
+          "value": "random",
+          "description": "基于权重的随机负载均衡算法（默认）"
+        },
+        {
+          "value": "roundrobin",
+          "description": "轮询负载均衡算法"
+        }
+      ]
+    }
+  ]
+}

@@ -46,8 +46,10 @@ public class LocalServiceRegistry implements Registry {
             String addr = param.get(DIRECT_ADDRESS);
             if (addr != null && !addr.trim().isEmpty()) {
                 this.directAddress = addr.trim();
+                return;
             }
         }
+        this.directAddress = null;
     }
 
     @Override
