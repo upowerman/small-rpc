@@ -184,7 +184,7 @@ curl "http://localhost:8091/hello?name=World"
 > （directory：注册中心发现，或 `@RpcReference.address` 直连）→ LoadBalancer（SPI）
 > → RemoteInvoker → NettyTransport → RpcServer → ReflectiveInvoker → 回帧。
 
-## 架构简图
+### 架构简图
 
 ```mermaid
 flowchart LR
@@ -225,7 +225,7 @@ flowchart LR
 
 > 说明：主调用链固定为 **Consumer 代理调用 → 注册中心发现地址 → Netty 发送请求 → Provider 反射执行 → 响应回填 future**，`local/redis/zookeeper` 仅影响“地址发现与注册”环节。
 
-## RPC 全流程详解（入门必读）
+### RPC 全流程详解（入门必读）
 
 这一节按“**服务启动** → **发起调用** → **服务执行** → **结果返回**”完整讲一次，建议结合 `small-rpc-core` 源码一起看。
 
