@@ -3,6 +3,8 @@ package io.github.upowerman.spring;
 import io.github.upowerman.annotation.RpcReference;
 import io.github.upowerman.core.cluster.FailoverClusterInvoker;
 import io.github.upowerman.core.directory.PullServiceDirectory;
+import io.github.upowerman.core.directory.ServiceDirectory;
+import io.github.upowerman.core.directory.StaticServiceDirectory;
 import io.github.upowerman.core.filter.Filter;
 import io.github.upowerman.core.filter.TraceFilter;
 import io.github.upowerman.core.invoker.RemoteInvoker;
@@ -73,7 +75,7 @@ public class ReferenceBeanPostProcessor extends InstantiationAwareBeanPostProces
     }
 
     private Object buildProxy(Class<?> iface, RpcReference reference) {
-        PullServiceDirectory directory = new PullServiceDirectory(registry, null);
+        ServiceDirectory directory = resolveDirectory(registry, reference.address());
         LoadBalancer loadBalancer = SpiLoader.of(LoadBalancer.class)
                 .getExtension(resolveLoadBalanceName(reference.loadBalance(), defaultLoadBalance));
         RemoteInvoker remoteInvoker = new RemoteInvoker(transport, iface);
@@ -81,6 +83,16 @@ public class ReferenceBeanPostProcessor extends InstantiationAwareBeanPostProces
                 directory, loadBalancer, remoteInvoker, 1, reference.timeout());
         return new RpcProxyFactory(
                 iface, Collections.<Filter>singletonList(new TraceFilter()), cluster, reference.timeout()).getProxy();
+    }
+
+    /**
+     * 目录解析：{@code @RpcReference(address)} 非空 → 直连（不查注册中心）；空 → 注册中心拉取。
+     */
+    static ServiceDirectory resolveDirectory(BaseServiceRegistry registry, String address) {
+        if (isNotBlank(address)) {
+            return new StaticServiceDirectory(address);
+        }
+        return new PullServiceDirectory(registry, null);
     }
 
     /**

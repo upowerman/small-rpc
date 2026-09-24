@@ -1,7 +1,11 @@
 package io.github.upowerman.spring;
 
 import io.github.upowerman.annotation.RpcReference;
+import io.github.upowerman.core.directory.PullServiceDirectory;
+import io.github.upowerman.core.directory.ServiceDirectory;
+import io.github.upowerman.core.directory.StaticServiceDirectory;
 import io.github.upowerman.core.invocation.Invocation;
+import io.github.upowerman.core.registry.BaseServiceRegistry;
 import io.github.upowerman.core.result.DefaultResult;
 import io.github.upowerman.core.result.Result;
 import io.github.upowerman.core.transport.Connection;
@@ -11,6 +15,7 @@ import org.junit.Test;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -27,7 +32,13 @@ import static org.junit.Assert.fail;
 public class ReferenceBeanPostProcessorTest {
 
     public static class Consumer {
-        @RpcReference(address = "localhost:0", timeout = 100)
+        @RpcReference(timeout = 100)
+        private EchoService echoService;
+    }
+
+    /** 直连：注解地址非空 → 不查注册中心 */
+    public static class DirectConsumer {
+        @RpcReference(address = "127.0.0.1:7099", timeout = 100)
         private EchoService echoService;
     }
 
@@ -116,5 +127,39 @@ public class ReferenceBeanPostProcessorTest {
         } catch (IllegalStateException e) {
             assertTrue(e.getMessage(), e.getMessage().contains("nope"));
         }
+    }
+
+    @Test
+    public void nonBlankAddressResolvesToStaticDirectory() {
+        ServiceDirectory directory = ReferenceBeanPostProcessor.resolveDirectory(
+                new LocalServiceRegistryForTest(), "127.0.0.1:7099");
+
+        assertTrue(directory instanceof StaticServiceDirectory);
+        assertEquals("127.0.0.1:7099", directory.list("a.B").get(0).getAddress());
+    }
+
+    @Test
+    public void blankAddressResolvesToRegistryDirectory() {
+        BaseServiceRegistry registry = new LocalServiceRegistryForTest();
+
+        assertTrue(ReferenceBeanPostProcessor.resolveDirectory(registry, "")
+                instanceof PullServiceDirectory);
+        assertTrue(ReferenceBeanPostProcessor.resolveDirectory(registry, "   ")
+                instanceof PullServiceDirectory);
+        assertTrue(ReferenceBeanPostProcessor.resolveDirectory(registry, null)
+                instanceof PullServiceDirectory);
+    }
+
+    @Test
+    public void addressAnnotationDrivesDirectConnectInsteadOfRegistry() throws Exception {
+        // 注册中心里只有 localhost:0；注解地址非空时必须直连注解地址
+        List<String> calls = new ArrayList<String>();
+        ReferenceBeanPostProcessor processor = new ReferenceBeanPostProcessor(
+                recordingTransport(calls), new LocalServiceRegistryForTest(), "");
+        DirectConsumer consumer = new DirectConsumer();
+        processor.injectReferences(consumer);
+
+        assertEquals("echo", injectedEchoService(consumer, "echoService").echo("hello"));
+        assertEquals(Collections.singletonList("127.0.0.1:7099"), calls);
     }
 }
