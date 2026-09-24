@@ -11,6 +11,9 @@
     </parent>
 
     <artifactId>small-rpc-spring-boot-starter</artifactId>
+    <name>small-rpc-spring-boot-starter</name>
+    <description>Spring Boot starter for Small RPC with auto-configuration support</description>
+    <url>https://github.com/upowerman/small-rpc</url>
 
     <dependencies>
         <dependency>

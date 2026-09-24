@@ -11,6 +11,9 @@
     </parent>
 
     <artifactId>small-rpc-spring</artifactId>
+    <name>small-rpc-spring</name>
+    <description>Spring Framework integration for Small RPC annotations (@RpcService, @RpcReference)</description>
+    <url>https://github.com/upowerman/small-rpc</url>
 
     <dependencies>
         <dependency>

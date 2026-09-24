@@ -11,6 +11,9 @@
     </parent>
 
     <artifactId>rpc-registry-local</artifactId>
+    <name>rpc-registry-local</name>
+    <description>In-memory local service registry implementation for Small RPC</description>
+    <url>https://github.com/upowerman/small-rpc</url>
 
     <dependencies>
         <dependency>
