@@ -1,6 +1,7 @@
 # Small-RPC 2.0
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.upowerman/small-rpc-spring-boot-starter.svg)](https://central.sonatype.com/artifact/io.github.upowerman/small-rpc-spring-boot-starter)
 [![Java](https://img.shields.io/badge/java-8+-green.svg)](https://www.oracle.com/java/)
 [![Netty](https://img.shields.io/badge/netty-4.1.108-orange.svg)](https://netty.io/)
 [![Spring Boot](https://img.shields.io/badge/spring--boot-2.7.18-brightgreen.svg)](https://spring.io/projects/spring-boot)
@@ -139,7 +140,7 @@ small-rpc:
 
 ### 1. 添加 Maven 依赖
 
-在 Spring Boot 应用的 `pom.xml` 中引入 starter（根据所选注册中心引入对应实现）：
+在 Spring Boot 应用的 `pom.xml` 中引入 starter（已默认内置单机 Local 直连注册中心，零外部依赖开箱即用）：
 
 ```xml
 <dependency>
@@ -148,18 +149,38 @@ small-rpc:
     <version>1.0.0</version>
 </dependency>
 
-<!-- 按需引入注册中心实现（如使用 ZooKeeper） -->
+<!-- 生产环境集群部署：按需引入分布式注册中心实现（二选一） -->
+<!-- 1. ZooKeeper 注册中心 -->
 <dependency>
     <groupId>io.github.upowerman</groupId>
     <artifactId>rpc-registry-zookeeper</artifactId>
+    <version>1.0.0</version>
+</dependency>
+
+<!-- 2. Redis 注册中心 -->
+<dependency>
+    <groupId>io.github.upowerman</groupId>
+    <artifactId>rpc-registry-redis</artifactId>
     <version>1.0.0</version>
 </dependency>
 ```
 
 ### 2. 服务提供方（Provider）实现
 
-定义业务接口与实现类，使用 `@RpcService` 暴露服务：
+在 `application.yml` 中配置服务提供端端口：
+```yaml
+server:
+  port: 8090
+small-rpc:
+  provider:
+    rpc2-port: 7081
+  consumer:
+    enabled: false    # 纯提供方建议关闭消费端装配（防无用代理注入）
+  registry:
+    type: local       # 本地直连；集群环境可换为 zookeeper 或 redis
+```
 
+定义业务接口与实现类，使用 `@RpcService` 暴露服务：
 ```java
 @Service
 @RpcService
@@ -281,7 +302,10 @@ public class HelloController {
 | `small-rpc.registry.zookeeper.connection-timeout-ms` | `3000` | Integer | ZooKeeper 连接建立超时时间（毫秒） |
 | `small-rpc.registry.redis.host` | `localhost` | String | Redis 服务器主机名/IP 地址 |
 | `small-rpc.registry.redis.port` | `6379` | Integer | Redis 服务器端口（1~65535） |
+| `small-rpc.registry.redis.database` | `0` | Integer | Redis 数据库索引（默认为 0） |
+| `small-rpc.registry.redis.timeout-ms` | `2000` | Integer | Redis 连接与读取超时时间（毫秒） |
 | `small-rpc.registry.redis.password` | 无 | String | Redis 认证密码（无密码留空） |
+| `small-rpc.registry.redis.key-prefix` | `small-rpc:registry:` | String | Redis 注册表集合 Key 前缀 |
 | `small-rpc.registry.redis.poll-interval-ms` | `3000` | Long | Redis 注册表差量比对拉取周期（毫秒） |
 | `small-rpc.registry.param.*` | - | Map<String, String> | 底层注册中心原始通用参数字典（向下兼容，同名键优先级高于强类型默认值） |
 | `small-rpc.loadbalance` | `random` | String | 全局负载均衡算法 SPI 名：`random`（随机）或 `roundrobin`（轮询） |
