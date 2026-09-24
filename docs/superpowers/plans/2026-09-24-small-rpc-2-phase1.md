@@ -417,6 +417,16 @@ public class ProtocolStatusTest {
         assertEquals(Status.SERVER_ERROR, ProtocolStatus.fromCode(ProtocolStatus.SERVER_ERROR));
     }
 
+    /** 线上字节值是跨版本契约：钉死字面量，避免常量被改动而往返测试仍绿 */
+    @Test
+    public void wireByteValuesArePinned() {
+        assertEquals((byte) 0, ProtocolStatus.SUCCESS);
+        assertEquals((byte) 1, ProtocolStatus.SERVICE_NOT_FOUND);
+        assertEquals((byte) 2, ProtocolStatus.METHOD_NOT_FOUND);
+        assertEquals((byte) 3, ProtocolStatus.SERIALIZATION_ERROR);
+        assertEquals((byte) 4, ProtocolStatus.SERVER_ERROR);
+    }
+
     @Test
     public void localOnlyStatusesAreNotRepresentable() {
         try {
@@ -632,7 +642,7 @@ public final class ProtocolStatus {
             case SERVER_ERROR:
                 return Status.SERVER_ERROR;
             default:
-                throw new ProtocolException("unknown status code: " + code);
+                throw new ProtocolException("unknown status code: " + (code & 0xFF));
         }
     }
 }
@@ -712,8 +722,9 @@ package io.github.upowerman.core.protocol;
 import java.io.Serializable;
 
 /**
- * 协议 Body：调用结果。成功时 value 非 null；失败时 value 为 null、
- * 错误以 errorClassName + errorMessage 描述（理由见下）。
+ * 协议 Body：调用结果。成败由**帧 header 的 status 字段**判定，不由 value
+ * 是否为空判定——void 方法成功返回时 value 亦为 null。失败时错误以
+ * errorClassName + errorMessage 描述（理由见下）。
  * <p>
  * <b>不传输 Throwable 对象</b>：委托的 1.x Hessian 反序列化忽略 clazz 参数，
  * 在网络上传输任意 Throwable 图等于开放任意反序列化面；重试/熔断决策完全由帧
@@ -783,7 +794,7 @@ public class SerializerRegistry {
 - [ ] **Step 4: 跑测试确认通过**
 
 Run: `mvn -f small-rpc-core/pom.xml test -q -Dtest='ProtocolStatusTest,ProtocolBodyTest,SerializerRegistryTest'`
-Expected: PASS（6 tests）
+Expected: PASS（9 tests：ProtocolStatus 4 + ProtocolBody 3 + SerializerRegistry 2）
 
 - [ ] **Step 5: Commit**
 
