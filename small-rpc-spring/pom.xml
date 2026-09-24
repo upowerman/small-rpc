@@ -3,33 +3,29 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <groupId>io.github.upowerman</groupId>
-    <artifactId>small-rpc-spring</artifactId>
-    <version>1.0.0</version>
 
-    <properties>
-        <maven.compiler.source>1.8</maven.compiler.source>
-        <maven.compiler.target>1.8</maven.compiler.target>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <spring.version>5.3.31</spring.version>
-    </properties>
+    <parent>
+        <groupId>io.github.upowerman</groupId>
+        <artifactId>small-rpc</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>small-rpc-spring</artifactId>
 
     <dependencies>
         <dependency>
             <groupId>io.github.upowerman</groupId>
             <artifactId>rpc-core</artifactId>
-            <version>1.0.0</version>
         </dependency>
+        <!-- 版本由 parent 的 spring-boot-dependencies BOM 管理（2.7.18 → Spring 5.3.31） -->
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-context</artifactId>
-            <version>${spring.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
-            <version>4.13.2</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
