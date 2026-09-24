@@ -38,10 +38,7 @@ public class Rpc2ConsumerAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean(Registry.class)
     public Registry rpc2Registry(Rpc2Properties properties) {
-        Registry registry = SpiLoader.of(Registry.class)
-                .getExtension(properties.getRegistry().getType());
-        registry.init(properties.getRegistry().getParam());
-        return registry;
+        return RegistrySupport.obtainRegistry(properties);
     }
 
     @Bean

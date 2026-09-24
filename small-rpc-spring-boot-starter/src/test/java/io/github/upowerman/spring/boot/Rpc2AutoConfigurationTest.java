@@ -168,6 +168,118 @@ public class Rpc2AutoConfigurationTest {
         }
     }
 
+    @Test
+    public void configuredMissingRegistryProvidesFriendlyErrorMessage() {
+        try {
+            new SpringApplicationBuilder(TestApp.class)
+                    .web(WebApplicationType.NONE)
+                    .properties(
+                            "small-rpc.provider.enabled=false",
+                            "small-rpc.registry.type=unknown-reg")
+                    .run();
+            fail("expected context startup failure");
+        } catch (RuntimeException e) {
+            String causes = allCauses(e);
+            assertTrue("cause chain 应包含友好的 pom.xml 依赖引入引导提示，实际: " + causes,
+                    causes.contains("未能加载注册中心实现 'unknown-reg'") && causes.contains("pom.xml"));
+        }
+    }
+
+    @Test
+    public void strongTypedLocalDirectAddressFlowsIntoLocalRegistry() {
+        ConfigurableApplicationContext context = new SpringApplicationBuilder(TestApp.class)
+                .web(WebApplicationType.NONE)
+                .properties(
+                        "small-rpc.provider.enabled=false",
+                        "small-rpc.registry.type=local",
+                        "small-rpc.registry.local.direct-address=localhost:9876")
+                .run();
+        try {
+            Registry registry = context.getBean(Registry.class);
+            final java.util.List<java.util.List<ServiceInstance>> received = new java.util.ArrayList<java.util.List<ServiceInstance>>();
+            registry.subscribe("io.github.upowerman.test.DemoService", new ServiceListener() {
+                @Override
+                public void onChange(java.util.List<ServiceInstance> instances) {
+                    received.add(instances);
+                }
+            });
+            assertFalse("local.direct-address 应生效并注册初始直连地址", received.isEmpty() || received.get(0).isEmpty());
+            assertEquals("localhost:9876", received.get(0).get(0).getAddress());
+        } finally {
+            context.close();
+        }
+    }
+
+    @Test
+    public void missingRequiredZookeeperConnectFailsFastWithFriendlyMessage() {
+        try {
+            new SpringApplicationBuilder(TestApp.class)
+                    .web(WebApplicationType.NONE)
+                    .properties(
+                            "small-rpc.provider.enabled=false",
+                            "small-rpc.registry.type=zookeeper",
+                            "small-rpc.registry.zookeeper.connect=")
+                    .run();
+            fail("expected validation failure on empty zk connect");
+        } catch (RuntimeException e) {
+            String causes = allCauses(e);
+            assertTrue("应提示缺少 ZooKeeper 必要连接地址，实际: " + causes,
+                    causes.contains("ZooKeeper 注册中心缺少必要连接地址")
+                            && causes.contains("small-rpc.registry.zookeeper.connect"));
+        }
+    }
+
+    @Test
+    public void invalidRedisPortFailsFastWithFriendlyMessage() {
+        try {
+            new SpringApplicationBuilder(TestApp.class)
+                    .web(WebApplicationType.NONE)
+                    .properties(
+                            "small-rpc.provider.enabled=false",
+                            "small-rpc.registry.type=redis",
+                            "small-rpc.registry.redis.port=99999")
+                    .run();
+            fail("expected validation failure on invalid redis port");
+        } catch (RuntimeException e) {
+            String causes = allCauses(e);
+            assertTrue("应提示 Redis 端口非法，实际: " + causes,
+                    causes.contains("Redis 注册中心端口非法"));
+        }
+    }
+
+    @Test
+    public void testProviderAndConsumerEnabledPropertiesBinding() throws Exception {
+        int port = freePort();
+        ConfigurableApplicationContext context = new SpringApplicationBuilder(TestApp.class)
+                .web(WebApplicationType.NONE)
+                .properties(
+                        "small-rpc.provider.enabled=false",
+                        "small-rpc.consumer.enabled=true")
+                .run();
+        try {
+            Rpc2Properties properties = context.getBean(Rpc2Properties.class);
+            assertFalse(properties.getProvider().isEnabled());
+            assertTrue(properties.getConsumer().isEnabled());
+        } finally {
+            context.close();
+        }
+
+        ConfigurableApplicationContext context2 = new SpringApplicationBuilder(TestApp.class)
+                .web(WebApplicationType.NONE)
+                .properties(
+                        "small-rpc.provider.enabled=true",
+                        "small-rpc.consumer.enabled=false",
+                        "small-rpc.provider.rpc2-port=" + port)
+                .run();
+        try {
+            Rpc2Properties properties2 = context2.getBean(Rpc2Properties.class);
+            assertTrue(properties2.getProvider().isEnabled());
+            assertFalse(properties2.getConsumer().isEnabled());
+        } finally {
+            context2.close();
+        }
+    }
+
     // ---- 帮助方法 ----
 
     private static int freePort() throws IOException {
