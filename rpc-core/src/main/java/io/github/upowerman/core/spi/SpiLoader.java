@@ -24,7 +24,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * 自研 SPI 装载器（类 Dubbo，不用 JDK ServiceLoader）。
  * 登记文件：classpath 下 META-INF/small-rpc/{接口全限定名}，行格式 name=FQCN。
  * 双类加载器枚举（TCCL + 本类 CL）合并去重，兼容 Spring Boot 打包与 devtools。
- * 扩展实例懒加载单例；任何异常（缺文件/重名/类型不符）都大声失败，不静默吞。
+ * 扩展实例懒加载单例；任何异常（缺文件/类型不符/同名不同实现）都大声失败，不静默吞。
+ * 登记去重口径为 (name, FQCN)：同一实现经多个 URL 可见（target/classes + 本地 jar）按重复忽略。
  */
 public final class SpiLoader<S> {
 
@@ -272,14 +273,23 @@ public final class SpiLoader<S> {
                     }
                     String name = trimmed.substring(0, eq).trim();
                     String fqcn = trimmed.substring(eq + 1).trim();
-                    if (implClasses.containsKey(name)) {
-                        throw new IllegalStateException("duplicate spi name '" + name + "' for "
-                                + type.getName() + " in " + url);
-                    }
                     Class<?> clazz = loadImpl(fqcn, owner, url);
                     if (!type.isAssignableFrom(clazz)) {
                         throw new IllegalStateException("spi impl " + fqcn + " does not implement "
                                 + type.getName() + " (in " + url + ")");
+                    }
+                    Class<S> existing = implClasses.get(name);
+                    if (existing != null) {
+                        if (existing.getName().equals(fqcn)) {
+                            // 同一实现经两个 URL 可见（target/classes + 本地 jar 同时在 classpath）：
+                            // 正常开发场景，按 (name, FQCN) 去重，不视为冲突
+                            logger.debug("duplicate spi registration ignored: {} = {} (in {})",
+                                    name, fqcn, url);
+                            continue;
+                        }
+                        throw new IllegalStateException("duplicate spi name '" + name + "' for "
+                                + type.getName() + " registered to different impls: "
+                                + existing.getName() + " vs " + fqcn + " (in " + url + ")");
                     }
                     implClasses.put(name, (Class<S>) clazz.asSubclass(type));
                 }
