@@ -1,0 +1,2 @@
+cycle-a=io.github.upowerman.core.spi.fixture.CycleSpiA
+cycle-b=io.github.upowerman.core.spi.fixture.CycleSpiB
