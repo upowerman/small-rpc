@@ -1465,7 +1465,7 @@ public class RpcServer {
 - [ ] **Step 4: 跑测试确认通过**
 
 Run: `mvn -f small-rpc-core/pom.xml test -q -Dtest=ServerHandlerTest`
-Expected: PASS（11 tests）
+Expected: PASS（10 tests）
 
 - [ ] **Step 5: Commit**
 
