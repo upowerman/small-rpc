@@ -1,0 +1,1 @@
+zookeeper=io.github.upowerman.core.registry.zookeeper.ZookeeperRegistry

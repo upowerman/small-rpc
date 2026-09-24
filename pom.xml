@@ -12,6 +12,7 @@
         <module>rpc-core</module>
         <module>rpc-transport-netty</module>
         <module>rpc-registry-local</module>
+        <module>rpc-registry-zookeeper</module>
         <module>small-rpc-spring</module>
         <module>small-rpc-spring-boot-starter</module>
         <module>rpc-examples</module>
@@ -54,6 +55,11 @@
             <dependency>
                 <groupId>io.github.upowerman</groupId>
                 <artifactId>rpc-registry-local</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.upowerman</groupId>
+                <artifactId>rpc-registry-zookeeper</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
