@@ -1119,7 +1119,7 @@ public class ServerHandlerTest {
     public void readerIdleEventClosesConnection() {
         channel.pipeline().fireUserEventTriggered(new Object());
         assertTrue("非空闲事件不得关闭连接", channel.isOpen());
-        channel.pipeline().fireUserEventTriggered(IdleStateEvent.READER_IDLE_EVENT);
+        channel.pipeline().fireUserEventTriggered(IdleStateEvent.READER_IDLE_STATE_EVENT);
         assertFalse("READER_IDLE 必须关闭连接", channel.isOpen());
     }
 
