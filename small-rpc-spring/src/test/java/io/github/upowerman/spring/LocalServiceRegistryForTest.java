@@ -2,7 +2,7 @@ package io.github.upowerman.spring;
 
 import io.github.upowerman.core.registry.BaseServiceRegistry;
 
-import java.util.Collections;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -10,7 +10,15 @@ import java.util.TreeSet;
 
 public class LocalServiceRegistryForTest implements BaseServiceRegistry {
 
-    private final TreeSet<String> directAddress = new TreeSet<String>(Collections.singletonList("localhost:0"));
+    private final TreeSet<String> directAddress;
+
+    public LocalServiceRegistryForTest() {
+        this("localhost:0");
+    }
+
+    public LocalServiceRegistryForTest(String... addresses) {
+        this.directAddress = new TreeSet<String>(Arrays.asList(addresses));
+    }
 
     @Override
     public void start(Map<String, String> param) {

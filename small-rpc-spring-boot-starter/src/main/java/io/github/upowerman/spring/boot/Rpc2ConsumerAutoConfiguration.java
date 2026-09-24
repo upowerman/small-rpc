@@ -46,7 +46,9 @@ public class Rpc2ConsumerAutoConfiguration {
 
     @Bean
     public ReferenceBeanPostProcessor referenceBeanPostProcessor(NettyTransport nettyTransport,
-                                                                 BaseServiceRegistry rpc2Registry) {
-        return new ReferenceBeanPostProcessor(nettyTransport, rpc2Registry);
+                                                                 BaseServiceRegistry rpc2Registry,
+                                                                 Rpc2Properties properties) {
+        // small-rpc.loadbalance 在此进入链路：注解未指定时作为缺省负载均衡扩展名
+        return new ReferenceBeanPostProcessor(nettyTransport, rpc2Registry, properties.getLoadBalance());
     }
 }

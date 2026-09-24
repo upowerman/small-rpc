@@ -8,6 +8,7 @@ import io.github.upowerman.core.filter.TraceFilter;
 import io.github.upowerman.core.invoker.RemoteInvoker;
 import io.github.upowerman.core.loadbalance.LoadBalancer;
 import io.github.upowerman.core.proxy.RpcProxyFactory;
+import io.github.upowerman.core.spi.Spi;
 import io.github.upowerman.core.spi.SpiLoader;
 import io.github.upowerman.core.transport.Transport;
 import io.github.upowerman.core.registry.BaseServiceRegistry;
@@ -34,10 +35,14 @@ public class ReferenceBeanPostProcessor extends InstantiationAwareBeanPostProces
 
     private final Transport transport;
     private final BaseServiceRegistry registry;
+    /** small-rpc.loadbalance 的值：注解未指定负载均衡时的缺省扩展名，空 = SPI 默认 */
+    private final String defaultLoadBalance;
 
-    public ReferenceBeanPostProcessor(Transport transport, BaseServiceRegistry registry) {
+    public ReferenceBeanPostProcessor(Transport transport, BaseServiceRegistry registry,
+                                      String defaultLoadBalance) {
         this.transport = transport;
         this.registry = registry;
+        this.defaultLoadBalance = defaultLoadBalance;
     }
 
     @Override
@@ -69,13 +74,32 @@ public class ReferenceBeanPostProcessor extends InstantiationAwareBeanPostProces
 
     private Object buildProxy(Class<?> iface, RpcReference reference) {
         PullServiceDirectory directory = new PullServiceDirectory(registry, null);
-        LoadBalancer loadBalancer = reference.loadBalance().isEmpty()
-                ? SpiLoader.of(LoadBalancer.class).getDefaultExtension()
-                : SpiLoader.of(LoadBalancer.class).getExtension(reference.loadBalance());
+        LoadBalancer loadBalancer = SpiLoader.of(LoadBalancer.class)
+                .getExtension(resolveLoadBalanceName(reference.loadBalance(), defaultLoadBalance));
         RemoteInvoker remoteInvoker = new RemoteInvoker(transport, iface);
         FailoverClusterInvoker cluster = new FailoverClusterInvoker(
                 directory, loadBalancer, remoteInvoker, 1, reference.timeout());
         return new RpcProxyFactory(
                 iface, Collections.<Filter>singletonList(new TraceFilter()), cluster, reference.timeout()).getProxy();
+    }
+
+    /**
+     * 负载均衡扩展名三态解析：注解值 &gt; {@code small-rpc.loadbalance} &gt; 接口 {@code @Spi} 默认名。
+     * 非法名由 {@link SpiLoader#getExtension(String)} 大声失败（消息含该名与支持的扩展列表）。
+     */
+    static String resolveLoadBalanceName(String annotationValue, String defaultValue) {
+        if (isNotBlank(annotationValue)) {
+            return annotationValue.trim();
+        }
+        if (isNotBlank(defaultValue)) {
+            return defaultValue.trim();
+        }
+        // 兜底：先让 SpiLoader 解析一次默认扩展（缺省配置缺失时在此大声失败），再取其登记名
+        SpiLoader.of(LoadBalancer.class).getDefaultExtension();
+        return LoadBalancer.class.getAnnotation(Spi.class).value();
+    }
+
+    private static boolean isNotBlank(String value) {
+        return value != null && !value.trim().isEmpty();
     }
 }
