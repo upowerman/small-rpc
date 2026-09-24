@@ -55,7 +55,7 @@
   - `@Spi("名字")`（`ElementType.TYPE`，RUNTIME）——标注在 **SPI 接口**上 = 默认扩展名
   - 本任务不含 @SpiInject 与 Adaptive（Task 2）
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 `small-rpc-core/src/test/java/io/github/upowerman/core/spi/SpiLoaderTest.java`：
 
@@ -180,12 +180,12 @@ Test 登记文件 `small-rpc-core/src/test/resources/META-INF/small-rpc/io.githu
 x=io.github.upowerman.core.spi.fixture.DemoSpiNoDefaultImpl
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `mvn -f small-rpc-core/pom.xml test -q -Dtest=SpiLoaderTest`
 Expected: 编译失败（`Spi`/`SpiLoader`/fixtures 中 `Spi` 不存在）
 
-- [ ] **Step 3: 实现 @Spi 与 SpiLoader**
+- [x] **Step 3: 实现 @Spi 与 SpiLoader**
 
 `Spi.java`：
 
@@ -439,12 +439,12 @@ public interface Serializer {
 
 （import `io.github.upowerman.core.spi.Spi`。BaseServiceRegistry 本任务不加注解——它不是 interface，SpiLoader.of 会拒绝 abstract class。**裁定**：登记文件保留，Task 2 的 registry 接入改走 `SpiLoader` 之外的装配方式或 T5 将 BaseServiceRegistry 改为 interface 时再接入；本任务先只登记 LoadBalancer 与 Serializer 于生产 META-INF，registry 登记文件**一并创建但暂无人消费**，T5 改 interface 后生效。）
 
-- [ ] **Step 4: 跑测试确认通过 + 全量回归**
+- [x] **Step 4: 跑测试确认通过 + 全量回归**
 
 Run: `mvn -f small-rpc-core/pom.xml test -q`
 Expected: 全量 PASS（基线 104 + 新增 7 = 111）
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add small-rpc-core/src/main/java/io/github/upowerman/core/spi small-rpc-core/src/main/resources/META-INF small-rpc-core/src/main/java/io/github/upowerman/core/loadbalance/LoadBalancer.java small-rpc-core/src/main/java/io/github/upowerman/core/serialize/Serializer.java small-rpc-core/src/test
@@ -469,7 +469,7 @@ git commit -m "feat(rpc2): custom SPI framework — @Spi + SpiLoader name lookup
   - `@Adaptive("参数键")`（`ElementType.TYPE`，RUNTIME）——标注在 SPI 接口上
   - `SpiLoader<S>.getAdaptive() → S`——JDK 动态代理分发器：方法调用时从首个 `Invocation` 类型参数的 `attachments().get(key)` 取扩展名（空/缺省 → 默认扩展）再委托；接口没有任何含 `Invocation` 参数的方法时 `getAdaptive()` 抛 IllegalStateException
 
-- [ ] **Step 1: 写失败测试（注入）**
+- [x] **Step 1: 写失败测试（注入）**
 
 `SpiInjectTest.java`：
 
@@ -561,7 +561,7 @@ cycle-b=io.github.upowerman.core.spi.fixture.CycleSpiB
 with=io.github.upowerman.core.spi.fixture.WithInject
 ```
 
-- [ ] **Step 2: 写失败测试（Adaptive）**
+- [x] **Step 2: 写失败测试（Adaptive）**
 
 `SpiAdaptiveTest.java`：
 
@@ -651,12 +651,12 @@ public final class GenericInvocationForTest implements Invocation {
 
 （若 `core.invocation` 已有可公开构造的 GenericInvocation，直接用之——实现者先读 `GenericInvocation.java` 构造器签名，等价替换并删除本 fixture，测试语义不变。）
 
-- [ ] **Step 3: 跑测试确认失败**
+- [x] **Step 3: 跑测试确认失败**
 
 Run: `mvn -f small-rpc-core/pom.xml test -q -Dtest='SpiInjectTest,SpiAdaptiveTest'`
 Expected: 编译失败（`SpiInject`/`Adaptive`/`getAdaptive` 不存在）
 
-- [ ] **Step 4: 实现**
+- [x] **Step 4: 实现**
 
 `SpiInject.java`：
 
@@ -823,12 +823,12 @@ public @interface Adaptive {
 
 `LoadBalancer.java` 加 `@Adaptive("lb")`（与 Task 1 的 `@Spi("random")` 并列）。
 
-- [ ] **Step 5: 跑测试确认通过 + 全量回归**
+- [x] **Step 5: 跑测试确认通过 + 全量回归**
 
 Run: `mvn -f small-rpc-core/pom.xml test -q`
 Expected: 全量 PASS（111 + 5 = 116）
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add small-rpc-core/src/main/java/io/github/upowerman/core/spi small-rpc-core/src/main/java/io/github/upowerman/core/loadbalance/LoadBalancer.java small-rpc-core/src/test
@@ -847,7 +847,7 @@ git commit -m "feat(rpc2): SPI @SpiInject IoC + Adaptive dispatcher (JDK proxy, 
 - Consumes: Task 1/2 的 SpiLoader、生产 META-INF（hessian 登记）
 - Produces: `SerializerRegistry.fromSpi() → SerializerRegistry`——注册所有经 SPI 登记的 Serializer（T4 starter 用它替代手工 `new LegacyHessianSerializer()`；T5 后等价于「rpc-core 不认识 Hessian，transport-netty 经登记文件供上」）
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```java
 package io.github.upowerman.core.serialize;
@@ -879,12 +879,12 @@ public class SerializerRegistrySpiTest {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `mvn -f small-rpc-core/pom.xml test -q -Dtest=SerializerRegistrySpiTest`
 Expected: 编译失败（`fromSpi` 不存在）
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `SerializerRegistry.java` 追加（import `io.github.upowerman.core.spi.SpiLoader`）：
 
@@ -900,12 +900,12 @@ Expected: 编译失败（`fromSpi` 不存在）
     }
 ```
 
-- [ ] **Step 4: 跑测试确认通过 + 全量回归**
+- [x] **Step 4: 跑测试确认通过 + 全量回归**
 
 Run: `mvn -f small-rpc-core/pom.xml test -q`
 Expected: 全量 PASS（116 + 2 = 118）
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add small-rpc-core/src/main/java/io/github/upowerman/core/serialize/SerializerRegistry.java small-rpc-core/src/test/java/io/github/upowerman/core/serialize/SerializerRegistrySpiTest.java
@@ -936,7 +936,7 @@ git commit -m "feat(rpc2): SerializerRegistry.fromSpi — wire serializers via S
 - Consumes: Task 1–3 的 SpiLoader/Spi 注解/`SerializerRegistry.fromSpi()`；P0/P1 的 `RpcProxyFactory`/`TraceFilter`/`FailoverClusterInvoker`/`PullServiceDirectory`/`RemoteInvoker`/`NettyTransport`/`RpcServer`/`ReflectiveInvoker`
 - Produces: 注解 `@RpcService`（类级）与 `@RpcReference`（字段级：`loadBalance()` 默认 ""、`timeout()` 默认 3000、`address()` 默认 ""）；starter 自动装配两个 AutoConfiguration
 
-- [ ] **Step 1: 新建两个模块骨架与注解**
+- [x] **Step 1: 新建两个模块骨架与注解**
 
 `small-rpc-spring/pom.xml`：
 
@@ -1067,7 +1067,7 @@ public @interface RpcReference {
 
 （同时 `git rm small-rpc-core/src/main/java/io/github/upowerman/annotation/`——两个注解搬走，1.x 的引用者会在后续编译中暴露并随之清理；本任务末尾样例已不用 1.x，core 内 1.x 引用者 = RpcSpringInvokerFactory/RpcSpringProviderFactory/RpcReferenceBean/RpcReferenceInvocationHandler，属 Task 5 删除对象，**本任务暂留但在 small-rpc-core 内编译会因 annotation 搬走而断**——因此本步骤同时把这几个类对 `io.github.upowerman.annotation` 的 import 改为指向新位置不可行（core 不能依赖 spring 模块）。**裁定**：把 `annotation/` 包**复制语义**改为「git mv 到 small-rpc-spring + 在 small-rpc-core 里 git rm 之」，core 内四个 1.x 引用类（RpcSpringInvokerFactory、RpcSpringProviderFactory、RpcReferenceBean、RpcReferenceInvocationHandler）**本任务提前 git rm**（它们唯一的生产使用方是样例 1.x bean，本任务同步删除），1.x net/invoker 剩余类不依赖 annotation 即可继续编译。实现者须先 `grep -rln "io.github.upowerman.annotation" small-rpc-core/src/main/java/io/github/upowerman/` 核实恰好上述四文件，再执行删除；发现更多引用者立即 BLOCKED 上报。）
 
-- [ ] **Step 2: 写 ReferenceBeanPostProcessor 失败测试**
+- [x] **Step 2: 写 ReferenceBeanPostProcessor 失败测试**
 
 `small-rpc-spring/src/test/java/io/github/upowerman/spring/ReferenceBeanPostProcessorTest.java`：
 
@@ -1122,7 +1122,7 @@ public class ReferenceBeanPostProcessorTest {
 - `NettyTransport(Serializer)` / `shutdown()`；`RemoteInvoker(Transport, Class<?>)`；`PullServiceDirectory(BaseServiceRegistry, String version)`
 - `GenericInvocation(String serviceName, String methodName, ...)` 有公共构造器
 
-- [ ] **Step 3: 实现 ReferenceBeanPostProcessor**
+- [x] **Step 3: 实现 ReferenceBeanPostProcessor**
 
 `small-rpc-spring/src/main/java/io/github/upowerman/spring/ReferenceBeanPostProcessor.java`：
 
@@ -1212,7 +1212,7 @@ public class ReferenceBeanPostProcessor extends InstantiationAwareBeanPostProces
 
 （实现者注意：`PullServiceDirectory`/`FailoverClusterInvoker` 的构造器签名以现有源码为准——先读再写，参数顺序/数量不符时以源码为准并保持「目录→均衡器→远程→重试→超时」语义。）
 
-- [ ] **Step 4: 实现 starter（properties + 两个 AutoConfiguration + imports 文件）**
+- [x] **Step 4: 实现 starter（properties + 两个 AutoConfiguration + imports 文件）**
 
 `Rpc2Properties.java`：
 
@@ -1384,7 +1384,7 @@ io.github.upowerman.spring.boot.Rpc2ConsumerAutoConfiguration
 
 （两个 AutoConfiguration 的 import 需补 `org.springframework.boot.autoconfigure.condition.ConditionalOnProperty`。Rpc2Properties 的 `loadBalance` 字段由 Spring 松散绑定接受 yml 的 `loadbalance` 键。）
 
-- [ ] **Step 5: 样例纯 2.0 改造**
+- [x] **Step 5: 样例纯 2.0 改造**
 
 server：
 - `RpcProviderConfig.java`：删 `rpc2Server(...)` bean、`rpcSpringProviderFactory()` bean、`@Value rpc2Port` 字段与相关 import——starter 已接管；文件里若只剩 1.x 内容则整个删除（1.x provider bean = RpcSpringProviderFactory，删除后 1.x 链路 7080 不再启动）
@@ -1416,7 +1416,7 @@ small-rpc:
 
 （删 `small-rpc.rpc2.address`、`small-rpc.registry.address` 等 1.x/P1 旧键。）
 
-- [ ] **Step 6: 构建 + 全量回归**
+- [x] **Step 6: 构建 + 全量回归**
 
 Run: `mvn -f small-rpc-core/pom.xml install -DskipTests -Dgpg.skip=true -Dmaven.javadoc.skip=true`
 Run: `mvn -f small-rpc-spring/pom.xml test -q`（新模块测试）
@@ -1425,7 +1425,7 @@ Run: `mvn -f small-rpc-core/pom.xml test -q`
 Run: `mvn -f small-rpc-simple/pom.xml test`
 Expected: 全部 BUILD SUCCESS；core 全量 PASS（118）
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add small-rpc-spring small-rpc-spring-boot-starter small-rpc-simple small-rpc-core/src/main/java/io/github/upowerman/annotation
@@ -1450,7 +1450,7 @@ git commit -m "feat(rpc2): rpc-spring + starter auto-config, sample goes pure-2.
 - Consumes: Task 1–4 全部；P1 全部 2.0 代码
 - Produces: 根聚合 `mvn test -q` 可构建 6 模块（rpc-core / rpc-transport-netty / rpc-registry-local / small-rpc-spring / small-rpc-spring-boot-starter / rpc-examples）；模块名与 spec §5 布局一致（zk/redis 两模块 P3 补）
 
-- [ ] **Step 1: 删除 1.x（先 grep 核实引用面，再 git rm）**
+- [x] **Step 1: 删除 1.x（先 grep 核实引用面，再 git rm）**
 
 核实命令：
 
@@ -1485,7 +1485,7 @@ git rm rpc-core/src/test/java/io/github/upowerman/RedisServiceRegistryIntegratio
 
 （另有 1.x 链路测试若存在——如测试 1.x NettyServer/RpcInvokerFactory 的类——按「测试对象已被删」原则一并 git rm；实现者用 `grep -rln "io.github.upowerman.net\|io.github.upowerman.invoker\|LegacyHessian\|adapter\." rpc-core/src/test/java/` 列出后核对，拿不准的 BLOCKED 上报。util/ 包：`grep -rln "io.github.upowerman.util" rpc-core/src/main/java rpc-core/src/test/java`——若零引用则整体 git rm，有引用则保留被引用文件并 BLOCKED 上报清单。）
 
-- [ ] **Step 2: HessianSerializer 重写（rpc-core 内先重写再搬）**
+- [x] **Step 2: HessianSerializer 重写（rpc-core 内先重写再搬）**
 
 Create `rpc-core/.../core/serialize/HessianSerializer.java`：
 
@@ -1543,14 +1543,14 @@ public class HessianSerializer implements Serializer {
 
 （先读 `RpcException` 构造器签名按实调整。`LegacyHessianSerializer` git rm；`META-INF/small-rpc/io.github.upowerman.core.serialize.Serializer` 行改为 `hessian=io.github.upowerman.core.serialize.HessianSerializer`；引用 LegacyHessianSerializer 的测试/样例 import 同步改 HessianSerializer。）
 
-- [ ] **Step 3: BaseServiceRegistry 迁包 + LocalServiceRegistry 迁模块**
+- [x] **Step 3: BaseServiceRegistry 迁包 + LocalServiceRegistry 迁模块**
 
 - `git mv rpc-core/src/main/java/io/github/upowerman/registry/BaseServiceRegistry.java rpc-core/src/main/java/io/github/upowerman/core/registry/BaseServiceRegistry.java`，包名改 `io.github.upowerman.core.registry`
 - `git mv` LocalServiceRegistry 至 `rpc-registry-local/src/main/java/io/github/upowerman/core/registry/local/LocalServiceRegistry.java`，包名 `io.github.upowerman.core.registry.local`，implements 改为新包名；**删 `org.springframework.util.StringUtils` import**，`StringUtils.isEmpty(address)` 改 `address == null || address.isEmpty()`
 - 登记文件改名+改行：`META-INF/small-rpc/io.github.upowerman.registry.BaseServiceRegistry` → `META-INF/small-rpc/io.github.upowerman.core.registry.BaseServiceRegistry`，行 `local=io.github.upowerman.core.registry.local.LocalServiceRegistry`（文件迁入 rpc-registry-local resources）
 - 全仓 import 修正：`PullServiceDirectory`、Task 4 starter 的 `ReferenceBeanPostProcessor`/`Rpc2ConsumerAutoConfiguration`、样例残留引用、既有测试（LocalServiceRegistryTest、PullServiceDirectoryTest 等）
 
-- [ ] **Step 4: 拆 transport-netty（git mv 保持历史）**
+- [x] **Step 4: 拆 transport-netty（git mv 保持历史）**
 
 从 rpc-core 迁出至 `rpc-transport-netty/src/main/java/...`（包名不变）：
 
@@ -1564,7 +1564,7 @@ git mv rpc-core/src/main/java/io/github/upowerman/core/transport rpc-transport-n
 
 `rpc-transport-netty/pom.xml`：依赖 rpc-core + netty-all + hessian + slf4j + junit(test)。
 
-- [ ] **Step 5: 改名两个既有模块 + 根聚合 pom**
+- [x] **Step 5: 改名两个既有模块 + 根聚合 pom**
 
 ```bash
 git mv small-rpc-core rpc-core && git mv small-rpc-simple rpc-examples
@@ -1599,7 +1599,7 @@ git mv rpc-examples/small-rpc-sample-springboot-server rpc-examples/rpc-example-
 </project>
 ```
 
-- [ ] **Step 6: 全仓 grep 清零验证 + 全量构建**
+- [x] **Step 6: 全仓 grep 清零验证 + 全量构建**
 
 ```bash
 # 1.x 零残留
@@ -1612,7 +1612,7 @@ grep -n "netty\|hessian\|spring\|jedis\|curator" rpc-core/pom.xml || echo CLEAN
 Run: `mvn test -q -Dgpg.skip=true`（根聚合，6 模块 reactor）
 Expected: BUILD SUCCESS，全量测试 = 118 − 1.x 已删测试数 + 迁移后原样数量（迁移不减测试）；若样例测试随模块迁移，数字在报告中列明细
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add -u && git add pom.xml rpc-transport-netty rpc-registry-local
@@ -1629,12 +1629,12 @@ git commit -m "refactor(rpc2): multi-module split — rpc-core slf4j-only, trans
 - Modify: `docs/superpowers/plans/2026-09-24-small-rpc-2-phase2.md`（勾选 + 实际输出记录）
 - 无生产代码改动（除非回归暴露缺陷——修复计入本任务，DEVIATION 醒目标注）
 
-- [ ] **Step 1: 根聚合全量回归**
+- [x] **Step 1: 根聚合全量回归**
 
 Run: `mvn test -q -Dgpg.skip=true`
 Expected: 6 模块全绿；记录总测试数
 
-- [ ] **Step 2: 样例手动验收（双应用，纯 2.0）**
+- [x] **Step 2: 样例手动验收（双应用，纯 2.0）**
 
 ```bash
 mvn -f rpc-examples/rpc-example-server spring-boot:run   # 终端 1：2.0 provider 7081
@@ -1649,12 +1649,12 @@ curl -s 'http://127.0.0.1:8091/hello?name=p2'
 
 Expected: 200 且 JSON 正确；server 日志 `rpc2 provider started on port 7081`（或含 7081 的启动行）；两端零 ERROR/Exception；**7080 端口不再监听**（`lsof -i :7080` 为空）；验收后停应用、确认 7081/8090/8091 释放
 
-- [ ] **Step 3: SPI 切换可观测验收（单测已钉，此处仅确认）**
+- [x] **Step 3: SPI 切换可观测验收（单测已钉，此处仅确认）**
 
 Run: `mvn -f rpc-core/pom.xml test -q -Dtest='SpiLoaderTest,SpiInjectTest,SpiAdaptiveTest,SerializerRegistrySpiTest'`
 Expected: PASS——loadbalance=hessian/registry 的 SPI 装配与 attachments lb 分发均被测试钉住
 
-- [ ] **Step 4: 验收清单勾选 + Commit**
+- [x] **Step 4: 验收清单勾选 + Commit**
 
 对照 P2 验收清单（本计划末节）逐项勾选，commit：
 
@@ -1667,13 +1667,13 @@ git commit -m "docs(rpc2): check off P2 plan — multi-module + SPI + pure-2.0 s
 
 ## P2 验收清单（对照 spec 补篇 §5）
 
-- [ ] 根聚合 pom + 6 模块（rpc-core/transport-netty/registry-local/spring/starter/examples），`mvn test -q` 全绿
-- [ ] rpc-core 只依赖 slf4j-api（+junit test）——pom grep 无 netty/hessian/spring/jedis/curator
-- [ ] 1.x 零残留：`io.github.upowerman.{net,invoker,provider,serialize(1.x),annotation(旧位置),registry(旧包)}` 与 `core/adapter/` 不复存在
-- [ ] 自研 SPI 三特性落地并有测试：按名查找（登记解析/单例/默认/大声失败）、@SpiInject（含环依赖大声失败）、Adaptive（attachments 分发/缺省回退/无 Invocation 参数拒绝）
-- [ ] SPI 接入点：LoadBalancer/Serializer/Registry 走 SpiLoader；`SerializerRegistry.fromSpi()` 装配；1.x 硬编码枚举（NetEnum/SerializeEnum）随 1.x 删除
-- [ ] HessianSerializer 基于 HessianInput/HessianOutput 直写（typeId=1 不变，反序列化忽略 clazz 的既定契约保留），LegacyHessianSerializer 删除
-- [ ] rpc-spring：@RpcService/@RpcReference（新属性）+ ReferenceBeanPostProcessor 装配 2.0 链路
-- [ ] starter 自动装配：provider 端 RpcServer+服务注册、consumer 端 transport+registry+reference 注入，yml `small-rpc.*` 驱动
-- [ ] 样例纯 2.0：/hello 经 2.0 链路 curl 200；7080 不再监听；零 ERROR
-- [ ] feature/rpc2 不合并不 push；本计划与 spec 补篇已提交
+- [x] 根聚合 pom + 6 模块（rpc-core/transport-netty/registry-local/spring/starter/examples），`mvn test -q` 全绿
+- [x] rpc-core 只依赖 slf4j-api（+junit test）——pom grep 无 netty/hessian/spring/jedis/curator
+- [x] 1.x 零残留：`io.github.upowerman.{net,invoker,provider,serialize(1.x),annotation(旧位置),registry(旧包)}` 与 `core/adapter/` 不复存在
+- [x] 自研 SPI 三特性落地并有测试：按名查找（登记解析/单例/默认/大声失败）、@SpiInject（含环依赖大声失败）、Adaptive（attachments 分发/缺省回退/无 Invocation 参数拒绝）
+- [x] SPI 接入点：LoadBalancer/Serializer/Registry 走 SpiLoader；`SerializerRegistry.fromSpi()` 装配；1.x 硬编码枚举（NetEnum/SerializeEnum）随 1.x 删除
+- [x] HessianSerializer 基于 HessianInput/HessianOutput 直写（typeId=1 不变，反序列化忽略 clazz 的既定契约保留），LegacyHessianSerializer 删除
+- [x] rpc-spring：@RpcService/@RpcReference（新属性）+ ReferenceBeanPostProcessor 装配 2.0 链路
+- [x] starter 自动装配：provider 端 RpcServer+服务注册、consumer 端 transport+registry+reference 注入，yml `small-rpc.*` 驱动
+- [x] 样例纯 2.0：/hello 经 2.0 链路 curl 200；7080 不再监听；零 ERROR
+- [x] feature/rpc2 不合并不 push；本计划与 spec 补篇已提交
