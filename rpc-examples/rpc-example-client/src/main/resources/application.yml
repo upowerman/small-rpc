@@ -9,6 +9,6 @@ small-rpc:
     enabled: false    # consumer 应用不起 provider（否则会抢 7081 端口，Ruling 6）
   registry:
     type: local
-    param:
-      DIRECT_ADDRESS: localhost:7081
+    local:
+      direct-address: localhost:7081
   loadbalance: random

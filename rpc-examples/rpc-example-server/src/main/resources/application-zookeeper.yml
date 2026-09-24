@@ -1,6 +1,6 @@
 small-rpc:
   registry:
     type: zookeeper
-    param:
-      zk.connect: localhost:2181
-      zk.namespace: small-rpc
+    zookeeper:
+      connect: localhost:2181
+      namespace: small-rpc
