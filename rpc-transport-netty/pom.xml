@@ -11,6 +11,9 @@
     </parent>
 
     <artifactId>rpc-transport-netty</artifactId>
+    <name>rpc-transport-netty</name>
+    <description>Netty-based network transport and heartbeat module for Small RPC</description>
+    <url>https://github.com/upowerman/small-rpc</url>
 
     <dependencies>
         <dependency>
