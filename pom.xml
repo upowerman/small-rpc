@@ -16,4 +16,144 @@
         <module>small-rpc-spring-boot-starter</module>
         <module>rpc-examples</module>
     </modules>
+
+    <!--
+        版本唯一真值：子模块一律不写依赖版本，由下方 dependencyManagement 提供。
+        新增模块时只需在此登记，勿在子模块重复声明 groupId/version/依赖版本。
+    -->
+    <properties>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <junit.version>4.13.2</junit.version>
+        <slf4j-api.version>1.7.36</slf4j-api.version>
+        <hessian.version>4.0.66</hessian.version>
+        <netty.version>4.1.108.Final</netty.version>
+        <spring-boot.version>2.7.18</spring-boot.version>
+        <!-- P3 注册中心模块使用 -->
+        <curator.version>5.6.0</curator.version>
+        <jedis.version>4.4.3</jedis.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- 内部模块：版本跟随 reactor -->
+            <dependency>
+                <groupId>io.github.upowerman</groupId>
+                <artifactId>rpc-core</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.upowerman</groupId>
+                <artifactId>rpc-transport-netty</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.upowerman</groupId>
+                <artifactId>rpc-registry-local</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.upowerman</groupId>
+                <artifactId>small-rpc-spring</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.upowerman</groupId>
+                <artifactId>small-rpc-spring-boot-starter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.upowerman</groupId>
+                <artifactId>rpc-example-api</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!--
+                三方依赖：本 POM 自己的条目优先于下方 import 进来的 BOM，
+                因此 netty-all 不会被 spring-boot-dependencies 的 netty 版本覆盖。
+            -->
+            <dependency>
+                <groupId>junit</groupId>
+                <artifactId>junit</artifactId>
+                <version>${junit.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-api</artifactId>
+                <version>${slf4j-api.version}</version>
+            </dependency>
+            <!-- slf4j-reload4j 未被 spring-boot-dependencies 管理，必须显式登记 -->
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-reload4j</artifactId>
+                <version>${slf4j-api.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-log4j12</artifactId>
+                <version>${slf4j-api.version}</version>
+            </dependency>
+            <!--
+                hamcrest-core：junit 4.13.2 的传递依赖。spring-boot-dependencies 把它管理成 2.2，
+                而 2.2 是只含一个弃用提示类的空壳 jar（真类在 org.hamcrest:hamcrest 里），
+                等于顺带把五个非 spring-boot 模块的测试栈从 Hamcrest 1.3 抬到 2.2。
+                这里锁回 junit 4.13.2 自带的 1.3，保持改造前后解析结果一致；
+                将来升级 JUnit 时一并重估此条。
+            -->
+            <dependency>
+                <groupId>org.hamcrest</groupId>
+                <artifactId>hamcrest-core</artifactId>
+                <version>1.3</version>
+            </dependency>
+            <dependency>
+                <groupId>com.caucho</groupId>
+                <artifactId>hessian</artifactId>
+                <version>${hessian.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-all</artifactId>
+                <version>${netty.version}</version>
+            </dependency>
+
+            <!--
+                netty-bom：spring-boot-dependencies 内部 import 的是 netty-bom 4.1.101.Final，
+                会把它覆盖范围内的 netty-* 传递依赖拉到 4.1.101.Final，与 netty-all 4.1.108.Final
+                不一致（混合版本）。这里按 ${netty.version} 显式 import 同一份 netty-bom，
+                保证全部 netty-* 停在 4.1.108.Final。
+            -->
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-bom</artifactId>
+                <version>${netty.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>${spring-boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- P3 注册中心模块使用 -->
+            <dependency>
+                <groupId>org.apache.curator</groupId>
+                <artifactId>curator-framework</artifactId>
+                <version>${curator.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.curator</groupId>
+                <artifactId>curator-recipes</artifactId>
+                <version>${curator.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>redis.clients</groupId>
+                <artifactId>jedis</artifactId>
+                <version>${jedis.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 </project>

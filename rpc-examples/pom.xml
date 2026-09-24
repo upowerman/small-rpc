@@ -5,10 +5,13 @@
 
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>rpc-examples</artifactId>
-    <groupId>io.github.upowerman</groupId>
-    <version>1.0.0</version>
+    <parent>
+        <groupId>io.github.upowerman</groupId>
+        <artifactId>small-rpc</artifactId>
+        <version>1.0.0</version>
+    </parent>
 
+    <artifactId>rpc-examples</artifactId>
     <packaging>pom</packaging>
 
     <modules>
@@ -16,68 +19,6 @@
         <module>rpc-example-client</module>
         <module>rpc-example-server</module>
     </modules>
-
-    <properties>
-        <maven.compiler.source>1.8</maven.compiler.source>
-        <maven.compiler.target>1.8</maven.compiler.target>
-        <netty-all.version>4.1.108.Final</netty-all.version>
-        <spring.version>5.3.39</spring.version>
-        <spring-boot.version>2.7.18</spring-boot.version>
-        <hessian.version>4.0.66</hessian.version>
-        <slf4j-api.version>1.7.36</slf4j-api.version>
-    </properties>
-
-
-    <!-- spring boot 依赖 -->
-    <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-starter-parent</artifactId>
-                <version>${spring-boot.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-            <dependency>
-                <groupId>org.springframework</groupId>
-                <artifactId>spring-beans</artifactId>
-                <version>${spring.version}</version>
-                <scope>provided</scope>
-            </dependency>
-            <dependency>
-                <groupId>org.springframework</groupId>
-                <artifactId>spring-core</artifactId>
-                <version>${spring.version}</version>
-                <scope>provided</scope>
-            </dependency>
-            <dependency>
-                <groupId>org.springframework</groupId>
-                <artifactId>spring-context</artifactId>
-                <version>${spring.version}</version>
-                <scope>provided</scope>
-            </dependency>
-            <dependency>
-                <groupId>io.netty</groupId>
-                <artifactId>netty-all</artifactId>
-                <version>${netty-all.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.caucho</groupId>
-                <artifactId>hessian</artifactId>
-                <version>${hessian.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.slf4j</groupId>
-                <artifactId>slf4j-api</artifactId>
-                <version>${slf4j-api.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.slf4j</groupId>
-                <artifactId>slf4j-log4j12</artifactId>
-                <version>${slf4j-api.version}</version>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
 
     <repositories>
         <repository>
