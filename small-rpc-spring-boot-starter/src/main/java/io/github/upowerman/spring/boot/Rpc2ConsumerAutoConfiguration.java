@@ -30,7 +30,12 @@ public class Rpc2ConsumerAutoConfiguration {
         return new NettyTransport(serializer);
     }
 
-    @Bean(destroyMethod = "stop")
+    /**
+     * SPI 扩展是进程级单例，跨 Spring 上下文共享，因此这里<b>不挂 destroyMethod</b>：
+     * 上下文关闭若把注册中心 stop 掉，同一 JVM 里第二个上下文的地址表会被清空。
+     * 带连接的注册中心（P3 ZK/Redis）需要独立的上下文级生命周期设计，届时再定。
+     */
+    @Bean
     public BaseServiceRegistry rpc2Registry(Rpc2Properties properties) {
         BaseServiceRegistry registry = SpiLoader.of(BaseServiceRegistry.class)
                 .getExtension(properties.getRegistry().getType());
