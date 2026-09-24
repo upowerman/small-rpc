@@ -2603,7 +2603,7 @@ git commit -m "feat(rpc2): sample apps expose 2.0 protocol stack (RpcServer bean
 - Consumes: 无（纯标注 + javadoc）
 - Produces: 适配器标 `@Deprecated` 并指向 P1 替代物
 
-- [ ] **Step 1: 标注**
+- [x] **Step 1: 标注**
 
 前三个类（`LegacyNettyTransport`/`LegacyConnection`/`BridgingFuture`）的类 javadoc 末尾追加，并加 `@Deprecated` 注解：
 
@@ -2624,12 +2624,12 @@ git commit -m "feat(rpc2): sample apps expose 2.0 protocol stack (RpcServer bean
  * 重写并搬入 rpc-transport-netty。
 ```
 
-- [ ] **Step 2: 全量回归**
+- [x] **Step 2: 全量回归**
 
 Run: `mvn -f small-rpc-core/pom.xml test -q`
 Expected: 全量 PASS（`@Deprecated` 只产生编译警告，不影响构建；`LegacyNettyTransportIntegrationTest` 等既有测试仍在用适配器，允许 deprecation 警告）
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add small-rpc-core/src
