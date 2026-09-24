@@ -8,6 +8,32 @@
     <version>1.0.0</version>
     <packaging>pom</packaging>
 
+    <name>Small RPC</name>
+    <description>A lightweight, extensible, high-performance Java RPC framework.</description>
+    <url>https://github.com/upowerman/small-rpc</url>
+
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <id>upowerman</id>
+            <name>upowerman</name>
+            <url>https://github.com/upowerman</url>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:https://github.com/upowerman/small-rpc.git</connection>
+        <developerConnection>scm:git:git@github.com:upowerman/small-rpc.git</developerConnection>
+        <url>https://github.com/upowerman/small-rpc</url>
+    </scm>
+
     <modules>
         <module>rpc-core</module>
         <module>rpc-transport-netty</module>
@@ -130,8 +156,9 @@
                 停在 4.1.108.Final。
 
                 ⚠ 顺序敏感：本条目必须排在下方 spring-boot-dependencies <b>之前</b>。
-                import 的 BOM 之间后者覆盖前者，若顺序颠倒，27 个 netty-* 传递依赖会静默掉回
-                4.1.101.Final 与 netty-all 混版，且**构建期无任何报错**。调整本段顺序前先读此注释。
+                Maven 在同一 dependencyManagement 中导入多个 BOM 时采用“First-Declared Wins”（先声明者优先）
+                仲裁规则，若顺序颠倒，后声明的 netty-bom 会被前者覆盖，27 个 netty-* 传递依赖会静默掉回
+                4.1.101.Final，且**构建期无任何报错**。调整本段顺序前先读此注释。
             -->
             <dependency>
                 <groupId>io.netty</groupId>
@@ -166,4 +193,88 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>3.11.0</version>
+                    <configuration>
+                        <source>${maven.compiler.source}</source>
+                        <target>${maven.compiler.target}</target>
+                        <encoding>${project.build.sourceEncoding}</encoding>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>3.2.5</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-jar-plugin</artifactId>
+                    <version>3.3.0</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-maven-plugin</artifactId>
+                    <version>${spring-boot.version}</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+
+    <profiles>
+        <profile>
+            <id>release</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-source-plugin</artifactId>
+                        <version>3.3.0</version>
+                        <executions>
+                            <execution>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>jar-no-fork</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <version>3.6.3</version>
+                        <configuration>
+                            <doclint>none</doclint>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>jar</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>3.1.0</version>
+                        <executions>
+                            <execution>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

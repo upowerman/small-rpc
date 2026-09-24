@@ -26,14 +26,6 @@
         </dependency>
         <dependency>
             <groupId>io.github.upowerman</groupId>
-            <artifactId>rpc-core</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.github.upowerman</groupId>
-            <artifactId>rpc-transport-netty</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.github.upowerman</groupId>
             <artifactId>rpc-registry-local</artifactId>
         </dependency>
         <dependency>
@@ -56,11 +48,9 @@
 
     <build>
         <plugins>
-            <!-- BOM import 只导入 dependencyManagement，不导入 pluginManagement（即便 spring-boot-dependencies 自身含），插件版本仍需显式声明（取自 parent properties） -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
-                <version>${spring-boot.version}</version>
                 <executions>
                     <execution>
                         <goals>
