@@ -1,7 +1,6 @@
 package io.github.upowerman.spring.boot;
 
 import io.github.upowerman.core.serialize.Serializer;
-import io.github.upowerman.core.serialize.SerializerRegistry;
 import io.github.upowerman.core.spi.SpiLoader;
 import io.github.upowerman.core.transport.NettyTransport;
 import io.github.upowerman.core.registry.BaseServiceRegistry;
@@ -14,7 +13,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * 消费方自动装配：SPI 取注册中心与序列化 → NettyTransport → ReferenceBeanPostProcessor。
+ * 消费方自动装配：SPI 取注册中心 → NettyTransport（内部经 SPI 取默认序列化器）
+ * → ReferenceBeanPostProcessor。
  * 开关：small-rpc.consumer.enabled（默认 true）——provider 侧应用必须显式关掉（Ruling 6）。
  */
 @Configuration
@@ -36,12 +36,6 @@ public class Rpc2ConsumerAutoConfiguration {
                 .getExtension(properties.getRegistry().getType());
         registry.start(properties.getRegistry().getParam());
         return registry;
-    }
-
-    @Bean
-    @ConditionalOnMissingBean(SerializerRegistry.class)
-    public SerializerRegistry serializerRegistry() {
-        return SerializerRegistry.fromSpi();
     }
 
     @Bean
