@@ -36,7 +36,7 @@ public final class SpiLoader<S> {
     private static final ConcurrentHashMap<Class<?>, SpiLoader<?>> LOADERS =
             new ConcurrentHashMap<Class<?>, SpiLoader<?>>();
 
-    /** 正在构造中的实现类（SpiInject 环检测；单 loader 内 synchronized 串行，ThreadLocal 防递归重入） */
+    /** 正在构造中的实现类（SpiInject 环检测；ThreadLocal 防同线程递归重入；实例化不持锁，并发创建由 putIfAbsent 收敛为单例） */
     private static final ThreadLocal<Set<Class<?>>> CONSTRUCTING =
             new ThreadLocal<Set<Class<?>>>() {
                 @Override
