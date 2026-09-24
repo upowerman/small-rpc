@@ -69,8 +69,9 @@ public class ServerHandler extends SimpleChannelInboundHandler<Frame> {
     private void handleRequest(Channel channel, Frame frame) {
         Serializer serializer = serializers.find(frame.codec());
         if (serializer == null) {
+            // codec 是无符号字节：以 & 0xFF 渲染，与 fromCode 的诊断口径一致
             writeError(channel, frame, ProtocolStatus.SERIALIZATION_ERROR,
-                    "unknown codec: " + frame.codec(), null);
+                    "unknown codec: " + (frame.codec() & 0xFF), null);
             return;
         }
         RpcRequestBody body;
@@ -130,12 +131,21 @@ public class ServerHandler extends SimpleChannelInboundHandler<Frame> {
         try {
             bytes = serializer == null ? new byte[0] : serializer.serialize(body);
         } catch (Exception e) {
-            // 结果本体序列化失败：降级为空 body 的 SERIALIZATION_ERROR 帧，调用方仍能结算
-            channel.writeAndFlush(Frame.response(frame.codec(), ProtocolStatus.SERIALIZATION_ERROR,
-                    frame.requestId(), new byte[0]));
+            writeDegradedFrame(channel, frame);
+            return;
+        }
+        if (bytes.length > Frame.MAX_BODY_LENGTH) {
+            // encode 侧对称守卫：写出超限 body 会被对端 FrameDecoder 拒帧并关连接，同走降级出口
+            writeDegradedFrame(channel, frame);
             return;
         }
         channel.writeAndFlush(Frame.response(frame.codec(), status, frame.requestId(), bytes));
+    }
+
+    /** 结果本体序列化失败或超限 MAX_BODY_LENGTH：降级为空 body 的 SERIALIZATION_ERROR 帧，调用方仍能结算 */
+    private void writeDegradedFrame(Channel channel, Frame frame) {
+        channel.writeAndFlush(Frame.response(frame.codec(), ProtocolStatus.SERIALIZATION_ERROR,
+                frame.requestId(), new byte[0]));
     }
 
     private static Invocation toInvocation(RpcRequestBody body) throws ClassNotFoundException {

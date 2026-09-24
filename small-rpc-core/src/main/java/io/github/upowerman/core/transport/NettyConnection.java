@@ -20,7 +20,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * 一条 2.0 协议连接：Invocation → 协议帧，响应帧经 ResponseHandler 回来。
  * 结算路径统一清理：超时由 PendingRequests 兜底驱逐；send 失败当场结算；
- * 序列化失败以 SERIALIZATION_ERROR 结算——任何路径都不泄漏 in-flight 条目。
+ * 序列化失败/body 超限以 SERIALIZATION_ERROR 结算——任何路径都不泄漏 in-flight 条目。
  */
 final class NettyConnection implements Connection {
 
@@ -50,6 +50,14 @@ final class NettyConnection implements Connection {
         } catch (Exception e) {
             pending.complete(requestId, DefaultResult.failure(Status.SERIALIZATION_ERROR,
                     new RpcException("serialize request failed", e)));
+            return future;
+        }
+        if (bodyBytes.length > Frame.MAX_BODY_LENGTH) {
+            // encode 侧对称守卫：超限 body 一旦写出会被对端 FrameDecoder 拒帧并关整条连接，
+            // 同信道全部在途请求都被拖到超时——本地结算为 SERIALIZATION_ERROR，不写出任何字节
+            pending.complete(requestId, DefaultResult.failure(Status.SERIALIZATION_ERROR,
+                    new RpcException("request body too large: " + bodyBytes.length
+                            + " bytes, max " + Frame.MAX_BODY_LENGTH)));
             return future;
         }
 

@@ -120,6 +120,38 @@ public class NettyClientHandlersTest {
         channel.finishAndReleaseAll();
     }
 
+    /** I-1：请求 body 超 Frame.MAX_BODY_LENGTH → 本地以 SERIALIZATION_ERROR 结算，不写出任何字节 */
+    @Test
+    public void oversizedRequestBodySettlesAsSerializationErrorWithoutWrite() throws Exception {
+        EmbeddedChannel channel = new EmbeddedChannel(new FrameDecoder(), new FrameEncoder());
+        PendingRequests pending = new PendingRequests();
+        Serializer oversized = new Serializer() {
+            @Override
+            public byte typeId() {
+                return 43;
+            }
+
+            @Override
+            public byte[] serialize(Object obj) {
+                return new byte[Frame.MAX_BODY_LENGTH + 1];
+            }
+
+            @Override
+            public Object deserialize(byte[] bytes, Class<?> clazz) {
+                throw new IllegalStateException("not expected in this test");
+            }
+        };
+        NettyConnection connection = new NettyConnection(channel, pending, oversized, TIMEOUT_MILLIS, "127.0.0.1:7080");
+
+        Result result = connection.request(invocation()).get(1, TimeUnit.SECONDS);
+
+        assertEquals(Status.SERIALIZATION_ERROR, result.status());
+        assertTrue("诊断信息必须指明请求过大", result.exception().getMessage().contains("too large"));
+        assertEquals("超限请求必须当场驱逐 in-flight 条目", 0, pending.size());
+        assertNull("超限请求不得写出任何字节", readOutbound(channel));
+        channel.finishAndReleaseAll();
+    }
+
     @Test
     public void sendFailureSettlesAsNetworkErrorAndEvictsPending() throws Exception {
         EmbeddedChannel channel = new EmbeddedChannel(new FrameDecoder(), new FrameEncoder());

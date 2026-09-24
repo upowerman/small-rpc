@@ -94,8 +94,28 @@ public class FrameCodecTest {
         }
     }
 
+    /** 钉住负 bodyLen 分支：负长度与超限同走 bodyLen 拒绝，先于任何分配 */
     @Test
-    public void oversizedBodyLengthThrowsWithoutAllocation() {
+    public void negativeBodyLengthThrows() {
+        ByteBuf buf = Unpooled.buffer();
+        buf.writeShort(Frame.MAGIC);
+        buf.writeByte(Frame.VERSION);
+        buf.writeByte(Frame.TYPE_REQUEST);
+        buf.writeByte(0);
+        buf.writeByte(0);
+        buf.writeShort(0);
+        buf.writeLong(1L);
+        buf.writeInt(-1);
+        try {
+            FrameCodec.decodeOne(buf);
+            fail("expected ProtocolException");
+        } catch (ProtocolException e) {
+            assertTrue(e.getMessage().contains("bodyLen"));
+        }
+    }
+
+    @Test
+    public void oversizedBodyLengthIsRejected() {
         ByteBuf buf = Unpooled.buffer();
         buf.writeShort(Frame.MAGIC);
         buf.writeByte(Frame.VERSION);
