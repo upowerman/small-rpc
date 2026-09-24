@@ -1,0 +1,10 @@
+small-rpc:
+  consumer:
+    enabled: true
+  provider:
+    enabled: false
+  registry:
+    type: zookeeper
+    param:
+      zk.connect: localhost:2181
+      zk.namespace: small-rpc

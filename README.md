@@ -155,26 +155,54 @@ roundrobin=io.github.upowerman.core.loadbalance.RoundRobinLoadBalancer
 | `small-rpc.registry.param.*` | — | 注册中心启动参数；local 模式放 `DIRECT_ADDRESS` |
 | `small-rpc.loadbalance` | SPI 默认 | 负载均衡扩展名，`@RpcReference.loadBalance` 未指定时生效 |
 
-Zookeeper / Redis 注册中心属 P3 规划，2.0 仅提供 Local 直连（`rpc-registry-local`）。
+注册中心支持 local（直连）、zookeeper（EPHEMERAL 节点 + PathChildrenCache）、redis（Set 注册表 + 轮询比对推送）。
 
 ## 运行示例
 
-1. 启动服务提供方：
+### 1. 本地直连单实例演示
+
+1. 启动服务提供方（7081/8090）：
 ```bash
-cd rpc-examples/rpc-example-server
-mvn spring-boot:run
+mvn -pl rpc-examples/rpc-example-server spring-boot:run
 ```
 
-2. 启动服务消费方：
+2. 启动服务消费方（8091）：
 ```bash
-cd rpc-examples/rpc-example-client
-mvn spring-boot:run
+mvn -pl rpc-examples/rpc-example-client spring-boot:run
 ```
 
 3. 访问测试接口：
 ```bash
 curl "http://localhost:8091/hello?name=World"
 ```
+
+### 2. ZooKeeper / Redis 多实例与容错演示
+
+以 ZooKeeper 为例（需启动本机 ZooKeeper: `localhost:2181`）：
+
+1. 启动第一台服务提供方（端口 8090 / RPC 7081）：
+```bash
+mvn -pl rpc-examples/rpc-example-server spring-boot:run -Dspring-boot.run.arguments="--spring.profiles.active=zookeeper --server.port=8090 --small-rpc.provider.rpc2-port=7081"
+```
+
+2. 启动第二台服务提供方（端口 8092 / RPC 7082）：
+```bash
+mvn -pl rpc-examples/rpc-example-server spring-boot:run -Dspring-boot.run.arguments="--spring.profiles.active=zookeeper --server.port=8092 --small-rpc.provider.rpc2-port=7082"
+```
+
+3. 启动服务消费方：
+```bash
+mvn -pl rpc-examples/rpc-example-client spring-boot:run -Dspring-boot.run.arguments="--spring.profiles.active=zookeeper"
+```
+
+4. 连续调用观察负载均衡：
+```bash
+for i in {1..10}; do curl "http://localhost:8091/hello?name=multi$i"; echo ""; done
+```
+
+5. 停止第一台提供方（kill 7081 进程），等待 ZooKeeper session 超时（≤10s），再次调用全部正常落入存活的 7082 实例。
+
+Redis 模式同理，指定 `--spring.profiles.active=redis` 即可。
 
 ## 附录：1.x 架构与全流程详解（历史文档）
 
