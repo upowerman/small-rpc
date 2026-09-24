@@ -398,6 +398,7 @@ import io.github.upowerman.core.result.Status;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 public class ProtocolStatusTest {
@@ -450,6 +451,18 @@ public class ProtocolStatusTest {
             fail("expected ProtocolException");
         } catch (ProtocolException expected) {
             // ok
+        }
+    }
+
+    /** 诊断信息按无符号字节呈现：对端新版本发来 200 时报 "200"，不报 "-56" */
+    @Test
+    public void unknownCodeIsReportedUnsigned() {
+        try {
+            ProtocolStatus.fromCode((byte) 200);
+            fail("expected ProtocolException");
+        } catch (ProtocolException expected) {
+            assertTrue("expected unsigned rendering, got: " + expected.getMessage(),
+                    expected.getMessage().contains("200"));
         }
     }
 }
@@ -794,7 +807,7 @@ public class SerializerRegistry {
 - [ ] **Step 4: 跑测试确认通过**
 
 Run: `mvn -f small-rpc-core/pom.xml test -q -Dtest='ProtocolStatusTest,ProtocolBodyTest,SerializerRegistryTest'`
-Expected: PASS（9 tests：ProtocolStatus 4 + ProtocolBody 3 + SerializerRegistry 2）
+Expected: PASS（10 tests：ProtocolStatus 5 + ProtocolBody 3 + SerializerRegistry 2）
 
 - [ ] **Step 5: Commit**
 
