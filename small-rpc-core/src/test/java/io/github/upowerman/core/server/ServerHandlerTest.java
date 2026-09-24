@@ -17,12 +17,14 @@ import io.github.upowerman.core.testsupport.EchoService;
 import io.github.upowerman.core.testsupport.EchoServiceImpl;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import io.netty.channel.EventLoopGroup;
 import io.netty.channel.embedded.EmbeddedChannel;
 import io.netty.handler.timeout.IdleStateEvent;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.lang.reflect.Field;
 import java.net.ServerSocket;
 import java.util.HashMap;
 import java.util.Map;
@@ -194,6 +196,70 @@ public class ServerHandlerTest {
         assertNull(readResponse());
     }
 
+    /** I-1：结果序列化超限 MAX_BODY_LENGTH → 降级为空 body 的 SERIALIZATION_ERROR 帧，不写出超大 body */
+    @Test
+    public void oversizedResponseBodyDegradesToEmptySerializationErrorFrame() {
+        final Serializer oversized = new Serializer() {
+            @Override
+            public byte typeId() {
+                return 43;
+            }
+
+            @Override
+            public byte[] serialize(Object obj) {
+                return new byte[Frame.MAX_BODY_LENGTH + 1];
+            }
+
+            @Override
+            public Object deserialize(byte[] bytes, Class<?> clazz) {
+                return HESSIAN.deserialize(bytes, clazz);
+            }
+        };
+        Map<String, Invoker> providers = new HashMap<String, Invoker>();
+        providers.put(EchoService.class.getName(),
+                new ReflectiveInvoker(EchoService.class, new EchoServiceImpl()));
+        EmbeddedChannel local = new EmbeddedChannel(new FrameDecoder(), new FrameEncoder(),
+                new ServerHandler(new SerializerRegistry().register(oversized), providers, DIRECT));
+        try {
+            RpcRequestBody body = new RpcRequestBody();
+            body.setServiceName(EchoService.class.getName());
+            body.setMethodName("echo");
+            body.setParameterTypes(new String[]{EchoDTO.class.getName()});
+            body.setArguments(new Object[]{new EchoDTO("big")});
+            ByteBuf buf = Unpooled.buffer();
+            FrameCodec.encode(Frame.request(oversized.typeId(), 107L, HESSIAN.serialize(body)), buf);
+            local.writeInbound(buf);
+
+            ByteBuf outbound = local.readOutbound();
+            assertNotNull("超限也必须回帧（降级帧）", outbound);
+            Frame resp = FrameCodec.decodeOne(outbound);
+            assertEquals(Frame.TYPE_RESPONSE, resp.type());
+            assertEquals(ProtocolStatus.SERIALIZATION_ERROR, resp.status());
+            assertEquals(107L, resp.requestId());
+            assertEquals("降级帧必须空 body", 0, resp.body().length);
+        } finally {
+            local.finishAndReleaseAll();
+        }
+    }
+
+    /** 未知帧类型 → 关连接（与客户端 ResponseHandler 的同型分支对称） */
+    @Test
+    public void unknownFrameTypeClosesChannel() {
+        // type=9 非法：Frame 工厂只产三种 type，这里手写头字节构造非法 type
+        ByteBuf buf = Unpooled.buffer();
+        buf.writeShort(Frame.MAGIC);
+        buf.writeByte(Frame.VERSION);
+        buf.writeByte(9);
+        buf.writeByte(0);
+        buf.writeByte(0);
+        buf.writeShort(0);
+        buf.writeLong(1L);
+        buf.writeInt(0);
+        channel.writeInbound(buf);
+        assertFalse("unknown frame type must close the channel", channel.isOpen());
+        assertNull(readResponse());
+    }
+
     @Test
     public void twoRequestsPipelinedOnOneConnectionBothAnswered() {
         writeInbound(requestEcho("one", 200L));
@@ -233,5 +299,33 @@ public class ServerHandlerTest {
         } finally {
             server.shutdown();
         }
+    }
+
+    /** M-1：bind 失败（端口被占）须释放已创建的 boss/worker 事件循环组，并原样重抛 */
+    @Test
+    public void bindFailureReleasesEventLoopsAndRethrows() throws Exception {
+        ServerSocket blocker = new ServerSocket(0);
+        RpcServer server = new RpcServer(blocker.getLocalPort(), new SerializerRegistry());
+        try {
+            server.start();
+            fail("端口被占用时 start 应抛异常");
+        } catch (Exception expected) {
+            // bind 失败必须原样重抛（Netty 对 BindException 经 sync() sneaky-throw，仍是受检异常形态）
+        } finally {
+            blocker.close();
+        }
+        try {
+            assertTrue("boss 必须已进入关闭流程", eventLoopGroup(server, "boss").isShuttingDown());
+            assertTrue("worker 必须已进入关闭流程", eventLoopGroup(server, "worker").isShuttingDown());
+        } finally {
+            // 幂等清理：即使断言失败也不在测试里泄漏事件循环线程
+            server.shutdown();
+        }
+    }
+
+    private static EventLoopGroup eventLoopGroup(RpcServer server, String name) throws Exception {
+        Field field = RpcServer.class.getDeclaredField(name);
+        field.setAccessible(true);
+        return (EventLoopGroup) field.get(server);
     }
 }

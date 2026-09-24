@@ -69,6 +69,7 @@ public final class Frame {
         return requestId;
     }
 
+    /** 返回内部数组引用，调用方不得修改其内容 */
     public byte[] body() {
         return body;
     }

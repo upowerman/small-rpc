@@ -87,8 +87,18 @@ public class RpcServer {
                 .childOption(ChannelOption.TCP_NODELAY, true)
                 .option(ChannelOption.SO_REUSEADDR, true)
                 .option(ChannelOption.SO_BACKLOG, 256);
-        // bind().sync() 返回即端口已监听，调用方无需再轮询探活
-        serverChannel = bootstrap.bind(port).sync().channel();
+        try {
+            // bind().sync() 返回即端口已监听，调用方无需再轮询探活
+            serverChannel = bootstrap.bind(port).sync().channel();
+        } catch (final Exception e) {
+            // bind 失败（端口占用等）时两组事件循环已创建，必须释放后重抛，否则泄漏线程。
+            // Netty 对 bind 失败的受检异常（如 BindException）经 sync() sneaky-throw 原样抛出；
+            // precise rethrow 让编译器仍按 try 块可抛类型（InterruptedException/RuntimeException）
+            // 看待 throw e，运行期则任何异常原样透传——保留原异常语义。
+            boss.shutdownGracefully(0, 5, TimeUnit.SECONDS);
+            worker.shutdownGracefully(0, 5, TimeUnit.SECONDS);
+            throw e;
+        }
         logger.info("rpc2 server started on port {}", port);
     }
 
