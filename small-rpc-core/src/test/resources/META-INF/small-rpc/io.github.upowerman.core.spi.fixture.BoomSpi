@@ -1,0 +1,2 @@
+good=io.github.upowerman.core.spi.fixture.BoomSpiGood
+boom=io.github.upowerman.core.spi.fixture.BoomSpiBad

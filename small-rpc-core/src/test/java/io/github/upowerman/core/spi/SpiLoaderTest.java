@@ -1,10 +1,20 @@
 package io.github.upowerman.core.spi;
 
+import io.github.upowerman.core.loadbalance.LoadBalancer;
+import io.github.upowerman.core.loadbalance.RandomLoadBalancer;
+import io.github.upowerman.core.loadbalance.RoundRobinLoadBalancer;
+import io.github.upowerman.core.serialize.LegacyHessianSerializer;
+import io.github.upowerman.core.serialize.Serializer;
+import io.github.upowerman.core.spi.fixture.BoomSpi;
+import io.github.upowerman.core.spi.fixture.BoomSpiGood;
 import io.github.upowerman.core.spi.fixture.DemoSpi;
 import io.github.upowerman.core.spi.fixture.DemoSpiA;
 import io.github.upowerman.core.spi.fixture.DemoSpiNoDefault;
 import org.junit.Test;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
@@ -33,7 +43,7 @@ public class SpiLoaderTest {
     @Test
     public void getSupportedExtensionsListsAllNames() {
         Set<String> names = SpiLoader.of(DemoSpi.class).getSupportedExtensions();
-        assertEquals(new java.util.LinkedHashSet<String>(java.util.Arrays.asList("a", "b")), names);
+        assertEquals(Arrays.asList("a", "b"), new ArrayList<String>(names));
     }
 
     @Test
@@ -65,6 +75,33 @@ public class SpiLoaderTest {
             fail("expected IllegalStateException");
         } catch (IllegalStateException e) {
             assertTrue(e.getMessage().contains("@Spi"));
+        }
+    }
+
+    @Test
+    public void productionLoadBalancerRegistrationResolves() {
+        SpiLoader<LoadBalancer> loader = SpiLoader.of(LoadBalancer.class);
+        assertEquals(Arrays.asList("random", "roundrobin"), new ArrayList<String>(loader.getSupportedExtensions()));
+        assertTrue(loader.getDefaultExtension() instanceof RandomLoadBalancer);
+        assertTrue(loader.getExtension("roundrobin") instanceof RoundRobinLoadBalancer);
+    }
+
+    @Test
+    public void productionSerializerRegistrationResolves() {
+        SpiLoader<Serializer> loader = SpiLoader.of(Serializer.class);
+        assertEquals(Collections.singletonList("hessian"), new ArrayList<String>(loader.getSupportedExtensions()));
+        assertTrue(loader.getDefaultExtension() instanceof LegacyHessianSerializer);
+    }
+
+    @Test
+    public void brokenExtensionDoesNotPoisonRegistrationAndFailsLoudlyOnDemand() {
+        SpiLoader<BoomSpi> loader = SpiLoader.of(BoomSpi.class);   // 解析期不得触发任何扩展的静态初始化
+        assertTrue(loader.getExtension("good") instanceof BoomSpiGood);
+        try {
+            loader.getExtension("boom");
+            fail("expected IllegalStateException");
+        } catch (IllegalStateException e) {
+            assertTrue(e.getMessage().contains("BoomSpiBad"));
         }
     }
 }
