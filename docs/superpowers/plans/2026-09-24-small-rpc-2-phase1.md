@@ -62,7 +62,7 @@ spec 暗示、但任务测试必须钉死的失败模式：
 - Consumes: 无（纯字节层，仅依赖 Netty 的 `ByteBuf`）
 - Produces: `Frame`（`static Frame request(byte codec, long requestId, byte[] body)` / `static Frame response(byte codec, byte status, long requestId, byte[] body)` / `static Frame heartbeat(long requestId)`；getter `type()/codec()/status()/requestId()/body()`；常量 `MAGIC/VERSION/HEADER_LENGTH=20/MAX_BODY_LENGTH/TYPE_REQUEST/TYPE_RESPONSE/TYPE_HEARTBEAT`）、`FrameCodec.encode(Frame, ByteBuf)`、`FrameCodec.decodeOne(ByteBuf)`（不足返回 null，协议错误抛 `ProtocolException`）
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```java
 package io.github.upowerman.core.protocol;
@@ -182,12 +182,12 @@ public class FrameCodecTest {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `mvn -f small-rpc-core/pom.xml test -q -Dtest=FrameCodecTest`
 Expected: 编译失败（`Frame`/`FrameCodec`/`ProtocolException` 不存在）
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `ProtocolException.java`:
 
@@ -356,12 +356,12 @@ public final class FrameCodec {
 }
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `mvn -f small-rpc-core/pom.xml test -q -Dtest=FrameCodecTest`
 Expected: PASS（7 tests）
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add small-rpc-core/src/main/java/io/github/upowerman/core/protocol small-rpc-core/src/test/java/io/github/upowerman/core/protocol
@@ -387,7 +387,7 @@ git commit -m "feat(rpc2): binary protocol frame + pure byte-level codec"
 
 **设计裁定（异常跨网传输）:** 响应体**不传输 `Throwable` 对象**，只传 `errorClassName + errorMessage`，客户端重建 `RpcException`。理由：委托的 1.x Hessian 反序列化**忽略 `clazz` 参数**（`hi.readObject()` 直接返回），在网络上传输任意 `Throwable` 图等于开放任意反序列化面；而重试/熔断决策完全由 `Status` 驱动，异常类型不承载语义。这是相对 1.x（回 errorMsg 字符串）的显式升级，不是权宜。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 `ProtocolStatusTest.java`:
 
@@ -595,12 +595,12 @@ public class SerializerRegistryTest {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `mvn -f small-rpc-core/pom.xml test -q -Dtest='ProtocolStatusTest,ProtocolBodyTest,SerializerRegistryTest'`
 Expected: 编译失败（类不存在）
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `ProtocolStatus.java`:
 
@@ -804,12 +804,12 @@ public class SerializerRegistry {
 }
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `mvn -f small-rpc-core/pom.xml test -q -Dtest='ProtocolStatusTest,ProtocolBodyTest,SerializerRegistryTest'`
 Expected: PASS（10 tests：ProtocolStatus 5 + ProtocolBody 3 + SerializerRegistry 2）
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add small-rpc-core/src/main/java/io/github/upowerman/core/protocol small-rpc-core/src/main/java/io/github/upowerman/core/serialize small-rpc-core/src/test/java/io/github/upowerman/core
@@ -835,7 +835,7 @@ git commit -m "feat(rpc2): protocol status mapping, body objects, serializer reg
 - Consumes: Task 1 全部（`Frame`/`FrameCodec`/`ProtocolException`）、Task 2 全部、`ReflectiveInvoker`（`core.provider`）、`Invoker`、`DefaultResult`、`RpcException`
 - Produces: `RpcServer(int port, SerializerRegistry)` + `register(String serviceName, Invoker)` + `start() throws InterruptedException` + `shutdown()`；`ServerHandler(SerializerRegistry, Map<String,Invoker>, Executor)`；`FrameDecoder`/`FrameEncoder`（Netty handler）；常量 `RpcConstants.HEARTBEAT_INTERVAL_SECONDS=30`、`RpcConstants.SERVER_IDLE_SECONDS=90`；测试夹具 `core.testsupport.EchoService{ EchoDTO echo(EchoDTO) }` + `EchoDTO{String msg}` + `EchoServiceImpl`（`msg` 以 "boom" 开头则抛 `IllegalStateException`）
 
-- [ ] **Step 1: 写测试夹具与失败测试**
+- [x] **Step 1: 写测试夹具与失败测试**
 
 `testsupport/EchoDTO.java`:
 
@@ -1143,12 +1143,12 @@ public class ServerHandlerTest {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `mvn -f small-rpc-core/pom.xml test -q -Dtest=ServerHandlerTest`
 Expected: 编译失败（`FrameDecoder`/`FrameEncoder`/`ServerHandler` 不存在）
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `protocol/FrameDecoder.java`:
 
@@ -1517,12 +1517,12 @@ public class RpcServer {
 }
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `mvn -f small-rpc-core/pom.xml test -q -Dtest=ServerHandlerTest`
 Expected: PASS（12 tests）
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add small-rpc-core/src
@@ -1546,7 +1546,7 @@ git commit -m "feat(rpc2): Netty frame handlers + 2.0 RpcServer with status-code
 - Consumes: Task 1/2/3 全部、`PendingRequests`、`Connection`/`Transport`/`Endpoint`、`Serializer`、`RpcConstants.ATTACH_TIMEOUT/HEARTBEAT_INTERVAL_SECONDS`
 - Produces: `NettyTransport(Serializer)` / `NettyTransport(Serializer, long)` 实现 `Transport` + `shutdown()`；per-address `Channel` 池（双检锁，与 1.x 静态池完全隔离）；`NettyConnection(Channel, PendingRequests, Serializer, long, String)`（包私有，测试可直接用 `EmbeddedChannel` 构造）
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```java
 package io.github.upowerman.core.transport;
@@ -1821,12 +1821,12 @@ public class NettyClientHandlersTest {
 }
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `mvn -f small-rpc-core/pom.xml test -q -Dtest=NettyClientHandlersTest`
 Expected: 编译失败（`NettyConnection`/`ResponseHandler`/`HeartbeatTrigger` 不存在）
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
 `transport/ResponseHandler.java`:
 
@@ -2183,14 +2183,14 @@ public class NettyTransport implements Transport {
  */
 ```
 
-- [ ] **Step 4: 跑测试确认通过 + 全量回归**
+- [x] **Step 4: 跑测试确认通过 + 全量回归**
 
 Run: `mvn -f small-rpc-core/pom.xml test -q -Dtest=NettyClientHandlersTest`
 Expected: PASS（11 tests）
 Run: `mvn -f small-rpc-core/pom.xml test -q`
 Expected: 全量 PASS（既有 54 个测试零破坏——接口未动）
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add small-rpc-core/src
@@ -2208,7 +2208,7 @@ git commit -m "feat(rpc2): 2.0 NettyTransport client with own channel pool and h
 - Consumes: Task 3 `RpcServer` + `testsupport.EchoService/EchoDTO/EchoServiceImpl`、Task 4 `NettyTransport`、`FailoverClusterInvoker`、`RemoteInvoker`、`RoundRobinLoadBalancer`、`RpcProxyFactory.getProxy()`、`ServiceDirectory`（匿名实现）、`TraceFilter`
 - Produces: 全链路回归验证（成功 / SERVER_ERROR / SERVICE_NOT_FOUND / 并发 requestId 路由 / 连接复用）
 
-- [ ] **Step 1: 写测试**
+- [x] **Step 1: 写测试**
 
 ```java
 package io.github.upowerman.core.e2e;
@@ -2410,17 +2410,17 @@ public class NettyProtocolEndToEndTest {
 }
 ```
 
-- [ ] **Step 2: 跑测试**
+- [x] **Step 2: 跑测试**
 
 Run: `mvn -f small-rpc-core/pom.xml test -q -Dtest=NettyProtocolEndToEndTest`
 Expected: PASS（5 tests）。本任务是集成验证而非新实现——若失败，按失败信息定位 Task 3/4 的缺陷并修复（修复计入本任务）
 
-- [ ] **Step 3: 全量回归**
+- [x] **Step 3: 全量回归**
 
 Run: `mvn -f small-rpc-core/pom.xml test -q`
 Expected: 全量 PASS（P0 既有 54 + P1 新增）
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add small-rpc-core/src/test
@@ -2443,7 +2443,7 @@ git commit -m "test(rpc2): real-Netty E2E for 2.0 protocol stack (echo/error/con
 
 **关键约束：** 1.x provider 已占用 7080，2.0 `RpcServer` 必须绑**另一个端口 7081**（否则启动即 bind 失败）；client 侧 2.0 目录用 `LocalServiceRegistry.DIRECT_ADDRESS` 直连 7081，与 1.x 的注册中心地址（7080）分开。
 
-- [ ] **Step 1: server 端 yml 追加 2.0 端口**
+- [x] **Step 1: server 端 yml 追加 2.0 端口**
 
 `small-rpc-sample-springboot-server/src/main/resources/application.yml` 的 `small-rpc.provider` 段追加一行（其余不动）:
 
@@ -2455,7 +2455,7 @@ small-rpc:
     rpc2-port: 7081
 ```
 
-- [ ] **Step 2: server 端追加 2.0 RpcServer bean**
+- [x] **Step 2: server 端追加 2.0 RpcServer bean**
 
 `RpcProviderConfig.java` 追加字段与 bean（保留既有 `rpcSpringProviderFactory()` 与 private 方法不动）:
 
@@ -2488,7 +2488,7 @@ import io.github.upowerman.core.server.RpcServer;
 import io.github.upowerman.service.HelloService;
 ```
 
-- [ ] **Step 3: client 端 yml 追加 2.0 地址**
+- [x] **Step 3: client 端 yml 追加 2.0 地址**
 
 `small-rpc-sample-springboot-client/src/main/resources/application.yml` 的 `small-rpc` 段追加（其余不动）:
 
@@ -2502,7 +2502,7 @@ small-rpc:
     address: localhost:7081
 ```
 
-- [ ] **Step 4: client 端 2.0 链路换用 NettyTransport**
+- [x] **Step 4: client 端 2.0 链路换用 NettyTransport**
 
 `RpcInvokerConfig.java`：追加字段 + 一个 transport bean，并改写 `rpc2HelloService()`（既有 1.x bean 与 private 方法不动）。
 
@@ -2552,13 +2552,13 @@ small-rpc:
 
 import 变更：删 `io.github.upowerman.core.adapter.LegacyNettyTransport`、`io.github.upowerman.serialize.HessianSerializer`、`io.github.upowerman.invoker.RpcInvokerFactory`；加 `io.github.upowerman.core.serialize.LegacyHessianSerializer`、`io.github.upowerman.core.transport.NettyTransport`。其余 import 保留（1.x 链路仍用）。
 
-- [ ] **Step 5: 编译 + 样例测试**
+- [x] **Step 5: 编译 + 样例测试**
 
 Run: `mvn -f small-rpc-core/pom.xml install -DskipTests -Dgpg.skip=true -Dmaven.javadoc.skip=true`
 Run: `mvn -f small-rpc-simple/pom.xml test`
 Expected: BUILD SUCCESS（4 模块）
 
-- [ ] **Step 6: 手动验收（双链路并存，2.0 走纯自研栈）**
+- [x] **Step 6: 手动验收（双链路并存，2.0 走纯自研栈）**
 
 ```bash
 # 终端 1: server（1.x 监听 7080，2.0 RpcServer 监听 7081）
@@ -2576,7 +2576,13 @@ curl -s 'http://127.0.0.1:8091/rpc2/hello?name=rpc2'   # 2.0 协议栈
 
 Expected: 两条 curl 均 200 且 JSON 正确；server 端日志出现 `rpc2 server started on port 7081`；两端日志零 ERROR/Exception。**手动验收，执行者完成后在计划文件勾选并记录实际输出。**
 
-- [ ] **Step 7: Commit**
+> **实际输出（2026-09-24 09:33–09:34，控制器内联执行，commit 0f77d3a 之上）**：
+> server 日志 `rpc2 server started on port 7081` + `Started RpcServerApplication`；client `Started RpcClientApplication`。
+> `/hello?name=rpc1` ×4 与 `/rpc2/hello?name=rpc2` ×4 共 8 次 curl 全部 HTTP 200，
+> 回显 `{"name":"rpc1","word":"hello world"}` / `{"name":"rpc2","word":"hello world"}`。
+> 两端日志 grep -cE "ERROR|Exception" = 0。应用已停止，7080/7081/8090/8091 四端口确认释放。
+
+- [x] **Step 7: Commit**
 
 ```bash
 git add small-rpc-simple
@@ -2634,14 +2640,14 @@ git commit -m "chore(rpc2): deprecate 1.x bridge adapters in favor of 2.0 protoc
 
 ## 验收清单（对照 spec §2 + §7 P1 行）
 
-- [ ] 协议帧 20 字节 Header（magic/ver/type/codec/status/requestId(long)/bodyLen）落地，纯字节层编解码可脱离 Netty 单测
-- [ ] 粘包/半包正确（逐字节喂入不误解、两帧粘连正确拆分、两帧流水线各自应答）
-- [ ] 恶意 bodyLen 与流错位被拒绝（不分配大数组、关连接）
-- [ ] `requestId` 为 `long`（`AtomicLong` 生成），并发路由正确（8 线程 × 10 调用零串包）
-- [ ] 心跳为协议一等公民：`TYPE_HEARTBEAT` 帧双向（client 写空闲触发、server 回显），替代 1.x 借道 Beat
-- [ ] `Result` 状态码贯通协议帧：SUCCESS/SERVICE_NOT_FOUND/METHOD_NOT_FOUND/SERIALIZATION_ERROR/SERVER_ERROR 双向映射；TIMEOUT/NETWORK_ERROR 保持调用方本地态
-- [ ] 序列化失败三处贯通（client 请求 / server 解码 / client 响应解码）均以 `SERIALIZATION_ERROR` 结算，不抛裸异常、不悬挂；类型伪装（合法 Hessian 非 RpcRequestBody）被转型防线拦下
-- [ ] 异常不跨网传对象：`errorClassName + errorMessage` 描述，客户端重建 `RpcException`
-- [ ] 2.0 拥有完整 client（NettyTransport）+ server（RpcServer），样例 `/rpc2/hello` 走纯 2.0 链路（端口 7081，无 1.x 组件）
-- [ ] codec 字段贯通（请求携带、响应沿用），`SerializerRegistry` 支持多序列化共存
-- [ ] `mvn -f small-rpc-core/pom.xml test -q` 全绿；1.x 代码零改动；P0 既有测试零破坏
+- [x] 协议帧 20 字节 Header（magic/ver/type/codec/status/requestId(long)/bodyLen）落地，纯字节层编解码可脱离 Netty 单测
+- [x] 粘包/半包正确（逐字节喂入不误解、两帧粘连正确拆分、两帧流水线各自应答）
+- [x] 恶意 bodyLen 与流错位被拒绝（不分配大数组、关连接）
+- [x] `requestId` 为 `long`（`AtomicLong` 生成），并发路由正确（8 线程 × 10 调用零串包）
+- [x] 心跳为协议一等公民：`TYPE_HEARTBEAT` 帧双向（client 写空闲触发、server 回显），替代 1.x 借道 Beat
+- [x] `Result` 状态码贯通协议帧：SUCCESS/SERVICE_NOT_FOUND/METHOD_NOT_FOUND/SERIALIZATION_ERROR/SERVER_ERROR 双向映射；TIMEOUT/NETWORK_ERROR 保持调用方本地态
+- [x] 序列化失败三处贯通（client 请求 / server 解码 / client 响应解码）均以 `SERIALIZATION_ERROR` 结算，不抛裸异常、不悬挂；类型伪装（合法 Hessian 非 RpcRequestBody）被转型防线拦下
+- [x] 异常不跨网传对象：`errorClassName + errorMessage` 描述，客户端重建 `RpcException`
+- [x] 2.0 拥有完整 client（NettyTransport）+ server（RpcServer），样例 `/rpc2/hello` 走纯 2.0 链路（端口 7081，无 1.x 组件）
+- [x] codec 字段贯通（请求携带、响应沿用），`SerializerRegistry` 支持多序列化共存
+- [x] `mvn -f small-rpc-core/pom.xml test -q` 全绿；1.x 代码零改动；P0 既有测试零破坏
