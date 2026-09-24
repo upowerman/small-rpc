@@ -1,11 +1,16 @@
 package io.github.upowerman.sample.config;
 
+import io.github.upowerman.core.provider.ReflectiveInvoker;
+import io.github.upowerman.core.serialize.LegacyHessianSerializer;
+import io.github.upowerman.core.serialize.SerializerRegistry;
+import io.github.upowerman.core.server.RpcServer;
 import io.github.upowerman.exception.RpcException;
 import io.github.upowerman.provider.impl.RpcSpringProviderFactory;
 import io.github.upowerman.registry.BaseServiceRegistry;
 import io.github.upowerman.registry.impl.LocalServiceRegistry;
 import io.github.upowerman.registry.impl.RedisServiceRegistry;
 import io.github.upowerman.registry.impl.ZookeeperServiceRegistry;
+import io.github.upowerman.service.HelloService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -24,6 +29,9 @@ public class RpcProviderConfig {
 
     @Value("${small-rpc.provider.port}")
     private int port;
+
+    @Value("${small-rpc.provider.rpc2-port:7081}")
+    private int rpc2Port;
 
     @Value("${small-rpc.registry.type:local}")
     private String registryType;
@@ -67,6 +75,20 @@ public class RpcProviderConfig {
         providerFactory.setServiceRegistryClass(resolveRegistryClass());
         providerFactory.setServiceRegistryParam(resolveRegistryParams());
         return providerFactory;
+    }
+
+    /**
+     * 2.0 协议栈 provider：serviceName → ReflectiveInvoker。
+     * destroyMethod 保证 Spring 关闭时释放 Netty 事件循环与业务线程池。
+     */
+    @Bean(destroyMethod = "shutdown")
+    public RpcServer rpc2Server(HelloService helloService) throws InterruptedException {
+        SerializerRegistry registry = new SerializerRegistry().register(new LegacyHessianSerializer());
+        RpcServer server = new RpcServer(rpc2Port, registry);
+        server.register(HelloService.class.getName(),
+                new ReflectiveInvoker(HelloService.class, helloService));
+        server.start();
+        return server;
     }
 
     private Class<? extends BaseServiceRegistry> resolveRegistryClass() {

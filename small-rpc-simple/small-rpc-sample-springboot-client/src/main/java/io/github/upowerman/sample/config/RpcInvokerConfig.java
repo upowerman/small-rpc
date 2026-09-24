@@ -1,6 +1,5 @@
 package io.github.upowerman.sample.config;
 
-import io.github.upowerman.core.adapter.LegacyNettyTransport;
 import io.github.upowerman.core.cluster.FailoverClusterInvoker;
 import io.github.upowerman.core.directory.PullServiceDirectory;
 import io.github.upowerman.core.filter.Filter;
@@ -8,14 +7,14 @@ import io.github.upowerman.core.filter.TraceFilter;
 import io.github.upowerman.core.invoker.RemoteInvoker;
 import io.github.upowerman.core.loadbalance.RandomLoadBalancer;
 import io.github.upowerman.core.proxy.RpcProxyFactory;
+import io.github.upowerman.core.serialize.LegacyHessianSerializer;
+import io.github.upowerman.core.transport.NettyTransport;
 import io.github.upowerman.exception.RpcException;
-import io.github.upowerman.invoker.RpcInvokerFactory;
 import io.github.upowerman.invoker.impl.RpcSpringInvokerFactory;
 import io.github.upowerman.registry.BaseServiceRegistry;
 import io.github.upowerman.registry.impl.LocalServiceRegistry;
 import io.github.upowerman.registry.impl.RedisServiceRegistry;
 import io.github.upowerman.registry.impl.ZookeeperServiceRegistry;
-import io.github.upowerman.serialize.HessianSerializer;
 import io.github.upowerman.service.HelloService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -38,6 +37,9 @@ public class RpcInvokerConfig {
 
     @Value("${small-rpc.registry.address:}")
     private String address;
+
+    @Value("${small-rpc.rpc2.address:localhost:7081}")
+    private String rpc2Address;
 
     @Value("${small-rpc.redis.host:localhost}")
     private String redisHost;
@@ -78,23 +80,29 @@ public class RpcInvokerConfig {
     }
 
     /**
-     * 2.0 新链路代理：Proxy → TraceFilter → FailoverClusterInvoker →
-     * PullServiceDirectory → LoadBalancer → RemoteInvoker → LegacyNettyTransport
+     * 2.0 自研协议栈客户端（自持连接池 + 心跳），destroyMethod 释放事件循环线程。
+     */
+    @Bean(destroyMethod = "shutdown")
+    public NettyTransport rpc2Transport() {
+        return new NettyTransport(new LegacyHessianSerializer());
+    }
+
+    /**
+     * 2.0 协议栈链路：Proxy → TraceFilter → FailoverClusterInvoker →
+     * PullServiceDirectory → RandomLoadBalancer → RemoteInvoker → NettyTransport
+     * （纯 2.0，不经过任何 1.x 组件）
      */
     @Bean
     public HelloService rpc2HelloService() {
-        LegacyNettyTransport transport = new LegacyNettyTransport(
-                new HessianSerializer(), new RpcInvokerFactory(), null);
-
         LocalServiceRegistry registry = new LocalServiceRegistry();
         Map<String, String> param = new HashMap<>();
-        param.put(LocalServiceRegistry.DIRECT_ADDRESS, address);
+        param.put(LocalServiceRegistry.DIRECT_ADDRESS, rpc2Address);
         registry.start(param);
 
         PullServiceDirectory directory = new PullServiceDirectory(registry, null);
         FailoverClusterInvoker cluster = new FailoverClusterInvoker(
                 directory, new RandomLoadBalancer(),
-                new RemoteInvoker(transport, HelloService.class), 1, 3000);
+                new RemoteInvoker(rpc2Transport(), HelloService.class), 1, 3000);
 
         return new RpcProxyFactory<>(HelloService.class,
                 Collections.<Filter>singletonList(new TraceFilter()), cluster).getProxy();
