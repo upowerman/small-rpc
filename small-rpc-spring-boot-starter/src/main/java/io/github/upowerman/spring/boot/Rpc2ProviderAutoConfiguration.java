@@ -76,9 +76,15 @@ public class Rpc2ProviderAutoConfiguration {
         return registry;
     }
 
+    @Bean
+    public ProviderRegistrationLifecycle providerRegistrationLifecycle(Registry registry) {
+        return new ProviderRegistrationLifecycle(registry);
+    }
+
     @Bean(destroyMethod = "shutdown")
     public RpcServer rpc2Server(ApplicationContext applicationContext, Rpc2Properties properties,
-                                SerializerRegistry serializerRegistry, Registry registry) throws Exception {
+                                SerializerRegistry serializerRegistry, Registry registry,
+                                ProviderRegistrationLifecycle lifecycle) throws Exception {
         int rpc2Port = properties.getProvider().getRpc2Port();
         RpcServer server = new RpcServer(rpc2Port, serializerRegistry);
         List<Class<?>> registeredInterfaces = new ArrayList<Class<?>>();
@@ -97,6 +103,7 @@ public class Rpc2ProviderAutoConfiguration {
         ServiceInstance instance = new ServiceInstance(selfAddress);
         for (Class<?> iface : registeredInterfaces) {
             registry.register(iface.getName(), instance);
+            lifecycle.record(iface.getName(), instance);
         }
 
         logger.info("rpc2 provider started on port {} (address='{}') with {} services registered to Registry",
@@ -148,5 +155,63 @@ public class Rpc2ProviderAutoConfiguration {
             sb.append(candidate.getName());
         }
         return sb.toString();
+    }
+
+    static class ProviderRegistrationLifecycle implements org.springframework.beans.factory.DisposableBean {
+        private static final Logger lifecycleLogger = LoggerFactory.getLogger(ProviderRegistrationLifecycle.class);
+
+        private static class RegistrationEntry {
+            final String service;
+            final ServiceInstance instance;
+
+            RegistrationEntry(String service, ServiceInstance instance) {
+                this.service = service;
+                this.instance = instance;
+            }
+        }
+
+        private final Registry registry;
+        private final List<RegistrationEntry> entries = new java.util.concurrent.CopyOnWriteArrayList<>();
+        private final Thread shutdownHook;
+
+        public ProviderRegistrationLifecycle(final Registry registry) {
+            this.registry = registry;
+            this.shutdownHook = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    ProviderRegistrationLifecycle.this.unregisterAll();
+                }
+            }, "small-rpc-provider-unregister-hook");
+            try {
+                Runtime.getRuntime().addShutdownHook(shutdownHook);
+            } catch (IllegalStateException ignored) {
+                // JVM already shutting down
+            }
+        }
+
+        public void record(String service, ServiceInstance instance) {
+            entries.add(new RegistrationEntry(service, instance));
+        }
+
+        private void unregisterAll() {
+            for (RegistrationEntry entry : entries) {
+                try {
+                    registry.unregister(entry.service, entry.instance);
+                    lifecycleLogger.info("Unregistered provider instance '{}' for service '{}'",
+                            entry.instance.getAddress(), entry.service);
+                } catch (Throwable t) {
+                    lifecycleLogger.warn("Failed to unregister provider service '{}': {}", entry.service, t.getMessage());
+                }
+            }
+        }
+
+        @Override
+        public void destroy() {
+            try {
+                Runtime.getRuntime().removeShutdownHook(shutdownHook);
+            } catch (Throwable ignored) {
+            }
+            unregisterAll();
+        }
     }
 }
