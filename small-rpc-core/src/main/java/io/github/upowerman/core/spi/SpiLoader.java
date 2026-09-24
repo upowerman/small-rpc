@@ -101,10 +101,10 @@ public final class SpiLoader<S> {
 
     private S newInstance(Class<S> impl) {
         try {
-            return impl.getDeclaredConstructor().newInstance();
-        } catch (ReflectiveOperationException e) {
+            return impl.getConstructor().newInstance();
+        } catch (ReflectiveOperationException | ExceptionInInitializerError | NoClassDefFoundError e) {
             throw new IllegalStateException("cannot instantiate spi extension " + impl.getName()
-                    + " (需要公共无参构造器)", e);
+                    + " (需要公共无参构造器 / 静态初始化失败)", e);
         }
     }
 
@@ -122,7 +122,7 @@ public final class SpiLoader<S> {
                 while (urls.hasMoreElements()) {
                     URL url = urls.nextElement();
                     if (seenUrls.add(url.toString())) {
-                        parseFile(url);
+                        parseFile(url, loader);
                     }
                 }
             }
@@ -135,7 +135,8 @@ public final class SpiLoader<S> {
         }
     }
 
-    private void parseFile(URL url) {
+    @SuppressWarnings("unchecked")
+    private void parseFile(URL url, ClassLoader owner) {
         try {
             BufferedReader reader = new BufferedReader(
                     new InputStreamReader(url.openStream(), StandardCharsets.UTF_8));
@@ -156,7 +157,7 @@ public final class SpiLoader<S> {
                         throw new IllegalStateException("duplicate spi name '" + name + "' for "
                                 + type.getName() + " in " + url);
                     }
-                    Class<?> clazz = Class.forName(fqcn, true, SpiLoader.class.getClassLoader());
+                    Class<?> clazz = Class.forName(fqcn, false, owner);
                     if (!type.isAssignableFrom(clazz)) {
                         throw new IllegalStateException("spi impl " + fqcn + " does not implement "
                                 + type.getName() + " (in " + url + ")");
@@ -169,7 +170,8 @@ public final class SpiLoader<S> {
         } catch (IOException e) {
             throw new IllegalStateException("cannot read spi registration file " + url, e);
         } catch (ClassNotFoundException e) {
-            throw new IllegalStateException("spi impl class not found (登记文件与类路径漂移?): " + e.getMessage(), e);
+            throw new IllegalStateException("spi impl class not found (登记文件与类路径漂移?): "
+                    + e.getMessage() + " (in " + url + ")", e);
         }
     }
 
