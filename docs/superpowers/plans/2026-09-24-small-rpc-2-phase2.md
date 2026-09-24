@@ -1113,7 +1113,14 @@ public class ReferenceBeanPostProcessorTest {
 }
 ```
 
-（测试需要的三个支撑类随测试写入：`EchoService`/`EchoStubTransport`/`LocalServiceRegistryForTest`——`EchoStubTransport implements Transport` 的 `request` 返回 `CompletableFuture.completedFuture(Result.success("echo"))`（先读 `core/result` 的 Result 工厂方法名，按实际签名调整）；`LocalServiceRegistryForTest` = `new LocalServiceRegistry()` + `start(param 含 DIRECT_ADDRESS=localhost:0)`——registry-local 未拆出前用现 1.x 包的 LocalServiceRegistry，T5 后改 import。）
+（测试需要的三个支撑类随测试写入：`EchoService`/`EchoStubTransport`/`LocalServiceRegistryForTest`——`EchoStubTransport implements Transport` 的 `request` 返回 `CompletableFuture.completedFuture(DefaultResult.success("echo"))`（**实测签名**：`core/result/DefaultResult` 静态工厂 `success(Object)` / `failure(Status)` / `failure(Status, Throwable)`；`Result` 是接口无静态工厂）；`LocalServiceRegistryForTest` = `new LocalServiceRegistry()` + `start(param 含 DIRECT_ADDRESS=localhost:0)`——registry-local 未拆出前用现 1.x 包的 LocalServiceRegistry，T5 后改 import。）
+
+**实测签名核对（控制器已预读，实现时以源码为准但下述为当前事实）**：
+- `FailoverClusterInvoker(ServiceDirectory, LoadBalancer, Invoker, int retries, long defaultTimeoutMillis)`
+- `RpcProxyFactory<T>(Class<T>, List<Filter>, Invoker)` 与 4 参重载（第 4 参 callTimeoutMillis）
+- `RpcServer(int port, SerializerRegistry)` / `register(String, Invoker)` → RpcServer / `start() throws InterruptedException` / `shutdown()`
+- `NettyTransport(Serializer)` / `shutdown()`；`RemoteInvoker(Transport, Class<?>)`；`PullServiceDirectory(BaseServiceRegistry, String version)`
+- `GenericInvocation(String serviceName, String methodName, ...)` 有公共构造器
 
 - [ ] **Step 3: 实现 ReferenceBeanPostProcessor**
 
@@ -1277,9 +1284,12 @@ import io.github.upowerman.annotation.RpcService;
 /**
  * 提供方自动装配：收集 @RpcService bean → ReflectiveInvoker 注册 → 起 RpcServer。
  * 接口解析沿用 1.x RpcSpringProviderFactory 口径：getInterfaces()[0]。
+ * 开关：small-rpc.provider.enabled（默认 true）——consumer 侧应用必须显式关掉，
+ * 否则会跟着起一个空 provider 去抢端口（Ruling 6）。
  */
 @Configuration
 @ConditionalOnClass(RpcServer.class)
+@ConditionalOnProperty(prefix = "small-rpc.provider", name = "enabled", havingValue = "true", matchIfMissing = true)
 @ConditionalOnMissingBean(RpcServer.class)
 @EnableConfigurationProperties(Rpc2Properties.class)
 public class Rpc2ProviderAutoConfiguration {
@@ -1327,9 +1337,11 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * 消费方自动装配：SPI 取注册中心与序列化 → NettyTransport → ReferenceBeanPostProcessor。
+ * 开关：small-rpc.consumer.enabled（默认 true）——provider 侧应用必须显式关掉（Ruling 6）。
  */
 @Configuration
 @ConditionalOnClass(NettyTransport.class)
+@ConditionalOnProperty(prefix = "small-rpc.consumer", name = "enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(Rpc2Properties.class)
 public class Rpc2ConsumerAutoConfiguration {
 
@@ -1370,6 +1382,8 @@ io.github.upowerman.spring.boot.Rpc2ProviderAutoConfiguration
 io.github.upowerman.spring.boot.Rpc2ConsumerAutoConfiguration
 ```
 
+（两个 AutoConfiguration 的 import 需补 `org.springframework.boot.autoconfigure.condition.ConditionalOnProperty`。Rpc2Properties 的 `loadBalance` 字段由 Spring 松散绑定接受 yml 的 `loadbalance` 键。）
+
 - [ ] **Step 5: 样例纯 2.0 改造**
 
 server：
@@ -1380,6 +1394,8 @@ server：
 small-rpc:
   provider:
     rpc2-port: 7081
+  consumer:
+    enabled: false    # provider 应用不起 consumer 侧装配（Ruling 6）
 ```
 
 client：
@@ -1389,6 +1405,8 @@ client：
 
 ```yaml
 small-rpc:
+  provider:
+    enabled: false    # consumer 应用不起 provider（否则会抢 7081 端口，Ruling 6）
   registry:
     type: local
     param:
