@@ -63,7 +63,7 @@ small-rpc（根聚合 pom，新增；packaging=pom）
 
 ## 3. 自研 SPI（rpc-core，不用 JDK ServiceLoader）
 
-1. **按名查找**：`@Spi("random")` 标注实现类；`META-INF/small-rpc/<接口全限定名>` 登记文件（行格式 `name=FQCN`，类 Dubbo）；`SpiLoader.of(LoadBalancer.class).getExtension("roundrobin")` —— 懒加载 + 单例 + 按名查找，找不到/重复名大声失败
+1. **按名查找**：`@Spi("random")` 标注 **SPI 接口**（value = 默认扩展名，实现类不标注解）；`META-INF/small-rpc/<接口全限定名>` 登记文件（行格式 `name=FQCN`，类 Dubbo）；`SpiLoader.of(LoadBalancer.class).getExtension("roundrobin")` —— 懒加载 + 单例 + 按名查找，找不到/重复名大声失败
 2. **IoC**：扩展实现内 `@SpiInject` 字段由 SpiLoader 在实例化时注入其它 SPI 扩展（递归装配，环检测报错）
 3. **Adaptive**：`@Adaptive("key")` 标注在接口（或方法级键名），运行时按 Invocation attachments/URL 参数值选扩展名分发。**简化设计：不做 Dubbo 式动态字节码编译**，用预生成的分发器实现（反射装配、可单测、可断点——学习项目复杂度划算，spec 已否决过同类协商机制）
 4. **接入点**：LoadBalancer（random/roundrobin）、Serializer（hessian）、Registry（local）。`SerializeEnum`/`NetEnum` 等硬编码枚举随 1.x 删除，扩展选择统一走 SpiLoader
