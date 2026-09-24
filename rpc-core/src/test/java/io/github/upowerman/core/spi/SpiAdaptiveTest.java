@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -48,6 +49,23 @@ public class SpiAdaptiveTest {
                 Collections.singletonList(new ServiceInstance("only")),
                 invocationWith(Collections.<String, Object>emptyMap()));
         assertEquals("only", picked.getAddress());
+    }
+
+    @Test
+    public void adaptiveProxyFollowsObjectContract() {
+        LoadBalancer adaptive = SpiLoader.of(LoadBalancer.class).getAdaptive();
+
+        // equals 反身性：代理必须与自己相等（转发给 SpiLoader 实例时会得到 false）
+        assertTrue(adaptive.equals(adaptive));
+        assertFalse(adaptive.equals(new Object()));
+        assertFalse(adaptive.equals(null));
+
+        // hashCode = 代理自身的 identity hash，且多次调用稳定
+        assertEquals(System.identityHashCode(adaptive), adaptive.hashCode());
+        assertEquals(adaptive.hashCode(), adaptive.hashCode());
+
+        // toString 标明这是哪个接口的自适应分发器
+        assertEquals("Adaptive(" + LoadBalancer.class.getName() + ")", adaptive.toString());
     }
 
     @Test

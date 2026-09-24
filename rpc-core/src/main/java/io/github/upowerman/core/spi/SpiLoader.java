@@ -125,6 +125,18 @@ public final class SpiLoader<S> {
                         @Override
                         public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
                             if (method.getDeclaringClass() == Object.class) {
+                                // Object 方法必须按"代理自身"的 identity 语义实现：
+                                // 转发给 SpiLoader 会破坏 equals 反身性（adaptive.equals(adaptive) == false）
+                                String methodName = method.getName();
+                                if ("equals".equals(methodName)) {
+                                    return proxy == args[0];
+                                }
+                                if ("hashCode".equals(methodName)) {
+                                    return System.identityHashCode(proxy);
+                                }
+                                if ("toString".equals(methodName)) {
+                                    return "Adaptive(" + type.getName() + ")";
+                                }
                                 return method.invoke(SpiLoader.this, args);
                             }
                             Invocation invocation = findInvocation(method, args);
