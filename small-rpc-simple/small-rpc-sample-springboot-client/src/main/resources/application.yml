@@ -8,6 +8,9 @@ small-rpc:
   registry:
     type: local
     address: localhost:7080
+  # 2.0 协议栈直连地址（指向 server 的 rpc2-port）
+  rpc2:
+    address: localhost:7081
   redis:
     host: localhost
     port: 6379

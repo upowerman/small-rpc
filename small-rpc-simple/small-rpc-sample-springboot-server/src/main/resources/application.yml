@@ -9,6 +9,8 @@ spring:
 small-rpc:
   provider:
     port: 7080
+    # 2.0 自研协议栈端口（与 1.x 端口并存，互不共享 pipeline）
+    rpc2-port: 7081
   registry:
     type: local
   redis:
