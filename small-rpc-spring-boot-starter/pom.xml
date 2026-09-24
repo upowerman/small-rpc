@@ -31,10 +31,22 @@
             <version>${spring-boot.version}</version>
             <scope>provided</scope>
         </dependency>
+        <!--
+            测试口径与全仓一致：JUnit 4.13.2。
+            注意不要直接引入 spring-boot-starter-test（2.7 不含 junit:junit）：
+            它会带进 junit-jupiter，surefire 3.5.4 随即改用 JUnit Platform provider，
+            本模块的 JUnit 4 用例会被静默跳过（Tests run: 0），除非再加 vintage-engine。
+        -->
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
             <version>4.13.2</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.github.upowerman</groupId>
+            <artifactId>rpc-registry-local</artifactId>
+            <version>1.0.0</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
