@@ -36,6 +36,7 @@ public class Rpc2ConsumerAutoConfiguration {
      * 带连接的注册中心（P3 ZK/Redis）需要独立的上下文级生命周期设计，届时再定。
      */
     @Bean
+    @ConditionalOnMissingBean(Registry.class)
     public Registry rpc2Registry(Rpc2Properties properties) {
         Registry registry = SpiLoader.of(Registry.class)
                 .getExtension(properties.getRegistry().getType());

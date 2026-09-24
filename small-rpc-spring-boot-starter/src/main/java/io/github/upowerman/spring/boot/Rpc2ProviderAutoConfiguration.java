@@ -4,6 +4,9 @@ import io.github.upowerman.annotation.RpcService;
 import io.github.upowerman.core.provider.ReflectiveInvoker;
 import io.github.upowerman.core.serialize.SerializerRegistry;
 import io.github.upowerman.core.server.RpcServer;
+import io.github.upowerman.core.directory.ServiceInstance;
+import io.github.upowerman.core.registry.Registry;
+import io.github.upowerman.core.spi.SpiLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -15,6 +18,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.util.ClassUtils;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -62,24 +67,53 @@ public class Rpc2ProviderAutoConfiguration {
         return SerializerRegistry.fromSpi();
     }
 
+    @Bean
+    @ConditionalOnMissingBean(Registry.class)
+    public Registry rpc2Registry(Rpc2Properties properties) {
+        Registry registry = SpiLoader.of(Registry.class)
+                .getExtension(properties.getRegistry().getType());
+        registry.init(properties.getRegistry().getParam());
+        return registry;
+    }
+
     @Bean(destroyMethod = "shutdown")
     public RpcServer rpc2Server(ApplicationContext applicationContext, Rpc2Properties properties,
-                                SerializerRegistry serializerRegistry) throws InterruptedException {
-        RpcServer server = new RpcServer(properties.getProvider().getRpc2Port(), serializerRegistry);
-        int registered = 0;
+                                SerializerRegistry serializerRegistry, Registry registry) throws Exception {
+        int rpc2Port = properties.getProvider().getRpc2Port();
+        RpcServer server = new RpcServer(rpc2Port, serializerRegistry);
+        List<Class<?>> registeredInterfaces = new ArrayList<Class<?>>();
         for (Object serviceBean : applicationContext.getBeansWithAnnotation(RpcService.class).values()) {
             Class<?> serviceInterface = resolveServiceInterface(serviceBean);
             server.register(serviceInterface.getName(), new ReflectiveInvoker(serviceInterface, serviceBean));
-            registered++;
+            registeredInterfaces.add(serviceInterface);
         }
-        if (registered == 0) {
+        if (registeredInterfaces.isEmpty()) {
             logger.warn("rpc2 provider 未注册任何服务：没有扫描到 @RpcService bean；"
                     + "如非本意请设 small-rpc.provider.enabled=false 关闭 provider 侧装配");
         }
         server.start();
-        logger.info("rpc2 provider started on port {} with {} services",
-                properties.getProvider().getRpc2Port(), registered);
+
+        String selfAddress = resolveProviderAddress(properties.getProvider().getAddress(), rpc2Port);
+        ServiceInstance instance = new ServiceInstance(selfAddress);
+        for (Class<?> iface : registeredInterfaces) {
+            registry.register(iface.getName(), instance);
+        }
+
+        logger.info("rpc2 provider started on port {} (address='{}') with {} services registered to Registry",
+                rpc2Port, selfAddress, registeredInterfaces.size());
         return server;
+    }
+
+    private static String resolveProviderAddress(String configuredAddress, int port) {
+        if (configuredAddress != null && !configuredAddress.trim().isEmpty()) {
+            return configuredAddress.trim();
+        }
+        try {
+            return InetAddress.getLocalHost().getHostAddress() + ":" + port;
+        } catch (UnknownHostException e) {
+            logger.warn("Failed to get local host address, defaulting to 127.0.0.1: {}", e.getMessage());
+            return "127.0.0.1:" + port;
+        }
     }
 
     /**

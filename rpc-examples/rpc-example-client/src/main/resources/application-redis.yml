@@ -1,0 +1,11 @@
+small-rpc:
+  consumer:
+    enabled: true
+  provider:
+    enabled: false
+  registry:
+    type: redis
+    param:
+      redis.host: localhost
+      redis.port: 6379
+      redis.poll-interval-ms: 3000

@@ -18,8 +18,12 @@ public class Rpc2Properties {
     public static class Provider {
         /** 2.0 RpcServer 监听端口 */
         private int rpc2Port = 7081;
+        /** 注册到注册中心的实例地址（host:port），空则自动探测本机 IP */
+        private String address = "";
         public int getRpc2Port() { return rpc2Port; }
         public void setRpc2Port(int rpc2Port) { this.rpc2Port = rpc2Port; }
+        public String getAddress() { return address; }
+        public void setAddress(String address) { this.address = address; }
     }
 
     public static class Registry {
