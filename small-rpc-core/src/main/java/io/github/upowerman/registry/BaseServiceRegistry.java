@@ -1,28 +1,30 @@
 package io.github.upowerman.registry;
 
+import io.github.upowerman.core.spi.Spi;
+
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
 /**
- * 注册服务抽象类
+ * 注册服务接口
  *
  * @author gaoyunfeng
  */
-public abstract class BaseServiceRegistry {
+@Spi("local")
+public interface BaseServiceRegistry {
 
     /**
      * 启动函数
      *
      * @param param 启动参数
      */
-    public abstract void start(Map<String, String> param);
+    void start(Map<String, String> param);
 
     /**
      * 停止注册
      */
-    public abstract void stop();
-
+    void stop();
 
     /**
      * 注册服务
@@ -31,8 +33,7 @@ public abstract class BaseServiceRegistry {
      * @param value 服务地址
      * @return
      */
-    public abstract boolean registry(Set<String> keys, String value);
-
+    boolean registry(Set<String> keys, String value);
 
     /**
      * 移除注册的服务
@@ -41,7 +42,7 @@ public abstract class BaseServiceRegistry {
      * @param value 服务地址
      * @return
      */
-    public abstract boolean remove(Set<String> keys, String value);
+    boolean remove(Set<String> keys, String value);
 
     /**
      * 发现服务
@@ -49,7 +50,7 @@ public abstract class BaseServiceRegistry {
      * @param keys 服务类key
      * @return service 服务地址列表
      */
-    public abstract Map<String, TreeSet<String>> discovery(Set<String> keys);
+    Map<String, TreeSet<String>> discovery(Set<String> keys);
 
     /**
      * 发现单个服务类
@@ -57,5 +58,5 @@ public abstract class BaseServiceRegistry {
      * @param key 服务类key
      * @return service 服务地址
      */
-    public abstract TreeSet<String> discovery(String key);
+    TreeSet<String> discovery(String key);
 }

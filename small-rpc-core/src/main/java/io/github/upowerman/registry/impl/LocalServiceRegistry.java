@@ -11,7 +11,7 @@ import java.util.TreeSet;
 /**
  * @author gaoyunfeng
  */
-public class LocalServiceRegistry extends BaseServiceRegistry {
+public class LocalServiceRegistry implements BaseServiceRegistry {
 
     /**
      * 指定rpc 地址的key

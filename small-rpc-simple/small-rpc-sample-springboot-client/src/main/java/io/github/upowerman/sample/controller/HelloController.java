@@ -17,10 +17,6 @@ public class HelloController {
     @RpcReference
     private HelloService helloService;
 
-    @org.springframework.beans.factory.annotation.Autowired
-    @org.springframework.beans.factory.annotation.Qualifier("rpc2HelloService")
-    private HelloService rpc2HelloService;
-
     @GetMapping("/hello")
     public HelloDTO hello(String name) {
         return helloService.hello(name);
@@ -28,6 +24,6 @@ public class HelloController {
 
     @GetMapping("/rpc2/hello")
     public HelloDTO rpc2Hello(String name) {
-        return rpc2HelloService.hello(name);
+        return helloService.hello(name);
     }
 }

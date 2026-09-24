@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit;
  *
  * @author gaoyunfeng
  */
-public class ZookeeperServiceRegistry extends BaseServiceRegistry {
+public class ZookeeperServiceRegistry implements BaseServiceRegistry {
 
     private static final Logger logger = LoggerFactory.getLogger(ZookeeperServiceRegistry.class);
 
