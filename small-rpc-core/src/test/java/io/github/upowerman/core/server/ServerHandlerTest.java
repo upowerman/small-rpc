@@ -18,10 +18,12 @@ import io.github.upowerman.core.testsupport.EchoServiceImpl;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.embedded.EmbeddedChannel;
+import io.netty.handler.timeout.IdleStateEvent;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.net.ServerSocket;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Executor;
@@ -31,6 +33,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 public class ServerHandlerTest {
 
@@ -203,5 +206,32 @@ public class ServerHandlerTest {
         assertEquals("echo:one", ((EchoDTO) bodyOf(first).getValue()).getMsg());
         assertEquals(201L, second.requestId());
         assertEquals("echo:two", ((EchoDTO) bodyOf(second).getValue()).getMsg());
+    }
+
+    /** READER_IDLE（服务端连续 SERVER_IDLE_SECONDS 无读）必须关连接——死连接回收唯一的执行点 */
+    @Test
+    public void readerIdleEventClosesConnection() {
+        channel.pipeline().fireUserEventTriggered(new Object());
+        assertTrue("非空闲事件不得关闭连接", channel.isOpen());
+        channel.pipeline().fireUserEventTriggered(IdleStateEvent.READER_IDLE_STATE_EVENT);
+        assertFalse("READER_IDLE 必须关闭连接", channel.isOpen());
+    }
+
+    /** 重复 start 必须显式失败，而非静默覆盖 boss/worker 泄漏上一组事件循环线程 */
+    @Test
+    public void doubleStartThrowsInsteadOfLeakingEventLoops() throws Exception {
+        ServerSocket probe = new ServerSocket(0);
+        int port = probe.getLocalPort();
+        probe.close();
+        RpcServer server = new RpcServer(port, new SerializerRegistry());
+        server.start();
+        try {
+            server.start();
+            fail("重复 start 应抛 IllegalStateException");
+        } catch (IllegalStateException expected) {
+            // ok
+        } finally {
+            server.shutdown();
+        }
     }
 }

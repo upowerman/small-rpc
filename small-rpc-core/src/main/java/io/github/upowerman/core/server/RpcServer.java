@@ -65,6 +65,10 @@ public class RpcServer {
     }
 
     public void start() throws InterruptedException {
+        if (serverChannel != null) {
+            // 重复 start 会静默覆盖 boss/worker，泄漏上一组事件循环线程——显式失败
+            throw new IllegalStateException("rpc2 server already started on port " + port);
+        }
         boss = new NioEventLoopGroup(1);
         worker = new NioEventLoopGroup();
         ServerBootstrap bootstrap = new ServerBootstrap();

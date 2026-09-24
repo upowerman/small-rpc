@@ -1,5 +1,6 @@
 package io.github.upowerman.core.server;
 
+import io.github.upowerman.core.RpcConstants;
 import io.github.upowerman.core.invocation.GenericInvocation;
 import io.github.upowerman.core.invocation.Invocation;
 import io.github.upowerman.core.invoker.Invoker;
@@ -15,6 +16,8 @@ import io.github.upowerman.exception.RpcException;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.handler.timeout.IdleState;
+import io.netty.handler.timeout.IdleStateEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -145,6 +148,19 @@ public class ServerHandler extends SimpleChannelInboundHandler<Frame> {
         return new GenericInvocation(body.getServiceName(), body.getMethodName(), types,
                 body.getArguments() == null ? new Object[0] : body.getArguments(),
                 attachments == null ? new HashMap<String, Object>() : attachments);
+    }
+
+    @Override
+    public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
+        // READER_IDLE = 连续 SERVER_IDLE_SECONDS 无读事件：对端已死（心跳保活失灵），回收半开连接。
+        // IdleStateHandler 只发事件不关连接，这里是死连接回收唯一的执行点。
+        if (evt instanceof IdleStateEvent && ((IdleStateEvent) evt).state() == IdleState.READER_IDLE) {
+            logger.warn("rpc2 server closes idle connection: {} (no read for {}s)",
+                    ctx.channel().remoteAddress(), RpcConstants.SERVER_IDLE_SECONDS);
+            ctx.close();
+        } else {
+            super.userEventTriggered(ctx, evt);
+        }
     }
 
     @Override
