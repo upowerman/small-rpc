@@ -12,7 +12,7 @@ public class Rpc2Properties {
     private Provider provider = new Provider();
     private Registry registry = new Registry();
 
-    /** 负载均衡扩展名（SPI 名），空 = 默认 */
+    /** 负载均衡扩展名（SPI 名）；@RpcReference.loadBalance 未指定时用它，空 = 接口 @Spi 默认扩展 */
     private String loadBalance = "";
 
     public static class Provider {
