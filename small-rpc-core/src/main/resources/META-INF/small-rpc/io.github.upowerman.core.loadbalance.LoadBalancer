@@ -1,0 +1,2 @@
+random=io.github.upowerman.core.loadbalance.RandomLoadBalancer
+roundrobin=io.github.upowerman.core.loadbalance.RoundRobinLoadBalancer
