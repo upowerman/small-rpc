@@ -2,7 +2,7 @@ package io.github.upowerman.spring;
 
 import io.github.upowerman.annotation.RpcReference;
 import io.github.upowerman.core.cluster.FailoverClusterInvoker;
-import io.github.upowerman.core.directory.PullServiceDirectory;
+import io.github.upowerman.core.directory.CachingServiceDirectory;
 import io.github.upowerman.core.directory.ServiceDirectory;
 import io.github.upowerman.core.directory.StaticServiceDirectory;
 import io.github.upowerman.core.filter.Filter;
@@ -10,10 +10,10 @@ import io.github.upowerman.core.filter.TraceFilter;
 import io.github.upowerman.core.invoker.RemoteInvoker;
 import io.github.upowerman.core.loadbalance.LoadBalancer;
 import io.github.upowerman.core.proxy.RpcProxyFactory;
+import io.github.upowerman.core.registry.Registry;
 import io.github.upowerman.core.spi.Spi;
 import io.github.upowerman.core.spi.SpiLoader;
 import io.github.upowerman.core.transport.Transport;
-import io.github.upowerman.core.registry.BaseServiceRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
@@ -27,7 +27,7 @@ import java.util.Collections;
  * 消费方装配：字段 @RpcReference → 2.0 链路代理。
  * 链路（P1 样例验证过的同一结构）：RpcProxyFactory(TraceFilter)
  *   → FailoverClusterInvoker(retries=1, timeout=注解值)
- *   → PullServiceDirectory(registry) → SPI 选 LoadBalancer
+ *   → CachingServiceDirectory(registry) → SPI 选 LoadBalancer
  *   → RemoteInvoker(transport, iface)。
  * 逻辑自 1.x RpcSpringInvokerFactory.postProcessAfterInstantiation 原样搬运，只换链路内核。
  */
@@ -36,11 +36,11 @@ public class ReferenceBeanPostProcessor extends InstantiationAwareBeanPostProces
     private static final Logger logger = LoggerFactory.getLogger(ReferenceBeanPostProcessor.class);
 
     private final Transport transport;
-    private final BaseServiceRegistry registry;
+    private final Registry registry;
     /** small-rpc.loadbalance 的值：注解未指定负载均衡时的缺省扩展名，空 = SPI 默认 */
     private final String defaultLoadBalance;
 
-    public ReferenceBeanPostProcessor(Transport transport, BaseServiceRegistry registry,
+    public ReferenceBeanPostProcessor(Transport transport, Registry registry,
                                       String defaultLoadBalance) {
         this.transport = transport;
         this.registry = registry;
@@ -76,6 +76,7 @@ public class ReferenceBeanPostProcessor extends InstantiationAwareBeanPostProces
 
     private Object buildProxy(Class<?> iface, RpcReference reference) {
         ServiceDirectory directory = resolveDirectory(registry, reference.address());
+        directory.subscribe(iface.getName());
         LoadBalancer loadBalancer = SpiLoader.of(LoadBalancer.class)
                 .getExtension(resolveLoadBalanceName(reference.loadBalance(), defaultLoadBalance));
         RemoteInvoker remoteInvoker = new RemoteInvoker(transport, iface);
@@ -86,13 +87,13 @@ public class ReferenceBeanPostProcessor extends InstantiationAwareBeanPostProces
     }
 
     /**
-     * 目录解析：{@code @RpcReference(address)} 非空 → 直连（不查注册中心）；空 → 注册中心拉取。
+     * 目录解析：{@code @RpcReference(address)} 非空 → 直连（不查注册中心）；空 → CachingServiceDirectory。
      */
-    static ServiceDirectory resolveDirectory(BaseServiceRegistry registry, String address) {
+    static ServiceDirectory resolveDirectory(Registry registry, String address) {
         if (isNotBlank(address)) {
             return new StaticServiceDirectory(address);
         }
-        return new PullServiceDirectory(registry, null);
+        return new CachingServiceDirectory(registry);
     }
 
     /**

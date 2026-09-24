@@ -1,11 +1,11 @@
 package io.github.upowerman.spring;
 
 import io.github.upowerman.annotation.RpcReference;
-import io.github.upowerman.core.directory.PullServiceDirectory;
+import io.github.upowerman.core.directory.CachingServiceDirectory;
 import io.github.upowerman.core.directory.ServiceDirectory;
 import io.github.upowerman.core.directory.StaticServiceDirectory;
 import io.github.upowerman.core.invocation.Invocation;
-import io.github.upowerman.core.registry.BaseServiceRegistry;
+import io.github.upowerman.core.registry.Registry;
 import io.github.upowerman.core.result.DefaultResult;
 import io.github.upowerman.core.result.Result;
 import io.github.upowerman.core.transport.Connection;
@@ -140,14 +140,14 @@ public class ReferenceBeanPostProcessorTest {
 
     @Test
     public void blankAddressResolvesToRegistryDirectory() {
-        BaseServiceRegistry registry = new LocalServiceRegistryForTest();
+        Registry registry = new LocalServiceRegistryForTest();
 
         assertTrue(ReferenceBeanPostProcessor.resolveDirectory(registry, "")
-                instanceof PullServiceDirectory);
+                instanceof CachingServiceDirectory);
         assertTrue(ReferenceBeanPostProcessor.resolveDirectory(registry, "   ")
-                instanceof PullServiceDirectory);
+                instanceof CachingServiceDirectory);
         assertTrue(ReferenceBeanPostProcessor.resolveDirectory(registry, null)
-                instanceof PullServiceDirectory);
+                instanceof CachingServiceDirectory);
     }
 
     @Test
