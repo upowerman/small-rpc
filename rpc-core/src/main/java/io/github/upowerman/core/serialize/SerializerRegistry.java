@@ -23,8 +23,17 @@ public class SerializerRegistry {
         return registry;
     }
 
+    /**
+     * 登记序列化器。typeId 是线上协议的一部分，重复登记意味着帧无法确定反序列化器——
+     * 与 SPI「重名大声失败」同一原则，这里不静默覆盖。
+     */
     public SerializerRegistry register(Serializer serializer) {
-        serializers.put(serializer.typeId(), serializer);
+        Serializer existing = serializers.putIfAbsent(serializer.typeId(), serializer);
+        if (existing != null) {
+            throw new IllegalStateException("duplicate serializer typeId " + serializer.typeId()
+                    + ": " + existing.getClass().getName() + " vs "
+                    + serializer.getClass().getName());
+        }
         return this;
     }
 
