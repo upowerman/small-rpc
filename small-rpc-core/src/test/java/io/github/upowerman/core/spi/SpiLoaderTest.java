@@ -43,7 +43,7 @@ public class SpiLoaderTest {
     @Test
     public void getSupportedExtensionsListsAllNames() {
         Set<String> names = SpiLoader.of(DemoSpi.class).getSupportedExtensions();
-        assertEquals(Arrays.asList("a", "b"), new ArrayList<String>(names));
+        assertEquals(Arrays.asList("a", "b", "with"), new ArrayList<String>(names));
     }
 
     @Test

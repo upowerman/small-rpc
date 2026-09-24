@@ -1,3 +1,4 @@
 # name=FQCN，'#' 开头为注释
 a=io.github.upowerman.core.spi.fixture.DemoSpiA
 b=io.github.upowerman.core.spi.fixture.DemoSpiB
+with=io.github.upowerman.core.spi.fixture.WithInject

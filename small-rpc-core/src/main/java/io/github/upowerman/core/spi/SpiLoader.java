@@ -1,11 +1,15 @@
 package io.github.upowerman.core.spi;
 
+import io.github.upowerman.core.invocation.Invocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Enumeration;
@@ -31,9 +35,19 @@ public final class SpiLoader<S> {
     private static final ConcurrentHashMap<Class<?>, SpiLoader<?>> LOADERS =
             new ConcurrentHashMap<Class<?>, SpiLoader<?>>();
 
+    /** 正在构造中的实现类（SpiInject 环检测；单 loader 内 synchronized 串行，ThreadLocal 防递归重入） */
+    private static final ThreadLocal<Set<Class<?>>> CONSTRUCTING =
+            new ThreadLocal<Set<Class<?>>>() {
+                @Override
+                protected Set<Class<?>> initialValue() {
+                    return new HashSet<Class<?>>();
+                }
+            };
+
     private final Class<S> type;
     private final Map<String, Class<S>> implClasses = new LinkedHashMap<String, Class<S>>();
     private final ConcurrentHashMap<String, S> singletons = new ConcurrentHashMap<String, S>();
+    private volatile S adaptiveProxy;
 
     private SpiLoader(Class<S> type) {
         this.type = type;
@@ -81,6 +95,65 @@ public final class SpiLoader<S> {
         return new LinkedHashSet<String>(implClasses.keySet());
     }
 
+    /**
+     * 自适应分发器（单例）：方法调用时按 attachments[key] 选扩展再委托；
+     * 键缺失/为空 → 默认扩展。要求接口至少有一个含 Invocation 参数的方法。
+     */
+    @SuppressWarnings("unchecked")
+    public S getAdaptive() {
+        boolean hasInvocationParameter = false;
+        for (Method method : type.getMethods()) {
+            for (Class<?> parameterType : method.getParameterTypes()) {
+                if (parameterType == Invocation.class) {
+                    hasInvocationParameter = true;
+                }
+            }
+        }
+        if (!hasInvocationParameter) {
+            throw new IllegalStateException(type.getName()
+                    + " has no method taking an Invocation parameter; @Adaptive 不可用");
+        }
+        Adaptive adaptive = type.getAnnotation(Adaptive.class);
+        if (adaptive == null) {
+            throw new IllegalStateException(type.getName() + " is not annotated with @Adaptive");
+        }
+        S result = adaptiveProxy;
+        if (result == null) {
+            final String key = adaptive.value();
+            result = (S) Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[]{type},
+                    new InvocationHandler() {
+                        @Override
+                        public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+                            if (method.getDeclaringClass() == Object.class) {
+                                return method.invoke(SpiLoader.this, args);
+                            }
+                            Invocation invocation = findInvocation(method, args);
+                            if (invocation == null) {
+                                throw new IllegalStateException(
+                                        "adaptive method must take an Invocation parameter: " + method);
+                            }
+                            Object raw = invocation.attachments() == null
+                                    ? null : invocation.attachments().get(key);
+                            String name = raw == null ? null : String.valueOf(raw);
+                            Object target = getExtension(name);
+                            return method.invoke(target, args);
+                        }
+                    });
+            adaptiveProxy = result;
+        }
+        return result;
+    }
+
+    private static Invocation findInvocation(Method method, Object[] args) {
+        Class<?>[] parameterTypes = method.getParameterTypes();
+        for (int i = 0; i < parameterTypes.length; i++) {
+            if (parameterTypes[i] == Invocation.class && args != null && args[i] != null) {
+                return (Invocation) args[i];
+            }
+        }
+        return null;
+    }
+
     private S createSingleton(String name) {
         synchronized (this) {
             S instance = singletons.get(name);
@@ -92,19 +165,45 @@ public final class SpiLoader<S> {
                 throw new IllegalStateException("no spi extension named '" + name + "' for "
                         + type.getName() + ", supported: " + joinNames());
             }
-            instance = newInstance(impl);
+            instance = instantiate(impl);
             singletons.put(name, instance);
             logger.debug("spi extension instantiated: {} = {}", name, impl.getName());
             return instance;
         }
     }
 
-    private S newInstance(Class<S> impl) {
+    private S instantiate(Class<S> impl) {
+        Set<Class<?>> visiting = CONSTRUCTING.get();
+        if (!visiting.add(impl)) {
+            throw new IllegalStateException("spi cycle detected: " + impl.getName()
+                    + " is already being constructed (SpiInject 环依赖)");
+        }
         try {
-            return impl.getConstructor().newInstance();
+            S instance = impl.getConstructor().newInstance();
+            injectFields(instance);
+            return instance;
         } catch (ReflectiveOperationException | ExceptionInInitializerError | NoClassDefFoundError e) {
             throw new IllegalStateException("cannot instantiate spi extension " + impl.getName()
                     + " (需要公共无参构造器 / 静态初始化失败)", e);
+        } finally {
+            visiting.remove(impl);
+        }
+    }
+
+    /** 装配 @SpiInject 字段：按字段类型注入该 SPI 的默认扩展（已有值不覆盖） */
+    private void injectFields(S instance) throws IllegalAccessException {
+        for (Class<?> c = instance.getClass(); c != null && c != Object.class; c = c.getSuperclass()) {
+            for (java.lang.reflect.Field field : c.getDeclaredFields()) {
+                if (!field.isAnnotationPresent(SpiInject.class)) {
+                    continue;
+                }
+                field.setAccessible(true);
+                if (field.get(instance) != null) {
+                    continue;
+                }
+                Object dependency = SpiLoader.of(field.getType()).getDefaultExtension();
+                field.set(instance, dependency);
+            }
         }
     }
 
@@ -157,7 +256,7 @@ public final class SpiLoader<S> {
                         throw new IllegalStateException("duplicate spi name '" + name + "' for "
                                 + type.getName() + " in " + url);
                     }
-                    Class<?> clazz = Class.forName(fqcn, false, owner);
+                    Class<?> clazz = loadImpl(fqcn, owner, url);
                     if (!type.isAssignableFrom(clazz)) {
                         throw new IllegalStateException("spi impl " + fqcn + " does not implement "
                                 + type.getName() + " (in " + url + ")");
@@ -169,9 +268,27 @@ public final class SpiLoader<S> {
             }
         } catch (IOException e) {
             throw new IllegalStateException("cannot read spi registration file " + url, e);
+        }
+    }
+
+    /**
+     * 用登记文件的 owner CL 加载实现类；owner 加载不到时回退到本类 CL。
+     * （TCCL 与自身 CL 不对称的病态 classpath 下，登记文件与类可见性可能漂移。）
+     */
+    private Class<?> loadImpl(String fqcn, ClassLoader owner, URL url) {
+        try {
+            return Class.forName(fqcn, false, owner);
         } catch (ClassNotFoundException e) {
+            ClassLoader own = SpiLoader.class.getClassLoader();
+            if (own != null && own != owner) {
+                try {
+                    return Class.forName(fqcn, false, own);
+                } catch (ClassNotFoundException ignored) {
+                    // 落到下面的诊断
+                }
+            }
             throw new IllegalStateException("spi impl class not found (登记文件与类路径漂移?): "
-                    + e.getMessage() + " (in " + url + ")", e);
+                    + fqcn + " (in " + url + ")", e);
         }
     }
 
