@@ -166,22 +166,30 @@ public final class SpiLoader<S> {
         return null;
     }
 
+    /**
+     * 懒加载单例：<b>实例化不持本 loader 的监视器</b>。
+     * 持锁实例化会串行化全部扩展创建，且两个 loader 的扩展互相 {@code @SpiInject} 时
+     * 形成跨 loader 的 ABBA 死锁；改用 {@code putIfAbsent} 收敛并发重复创建
+     * （竞态失败方的实例被丢弃，保证同名返回同一实例）。
+     * 同线程环检测（{@link #CONSTRUCTING}）语义不变。
+     */
     private S createSingleton(String name) {
-        synchronized (this) {
-            S instance = singletons.get(name);
-            if (instance != null) {
-                return instance;
-            }
-            Class<S> impl = implClasses.get(name);
-            if (impl == null) {
-                throw new IllegalStateException("no spi extension named '" + name + "' for "
-                        + type.getName() + ", supported: " + joinNames());
-            }
-            instance = instantiate(impl);
-            singletons.put(name, instance);
-            logger.debug("spi extension instantiated: {} = {}", name, impl.getName());
+        S instance = singletons.get(name);
+        if (instance != null) {
             return instance;
         }
+        Class<S> impl = implClasses.get(name);
+        if (impl == null) {
+            throw new IllegalStateException("no spi extension named '" + name + "' for "
+                    + type.getName() + ", supported: " + joinNames());
+        }
+        S created = instantiate(impl);
+        S previous = singletons.putIfAbsent(name, created);
+        if (previous != null) {
+            return previous;
+        }
+        logger.debug("spi extension instantiated: {} = {}", name, impl.getName());
+        return created;
     }
 
     private S instantiate(Class<S> impl) {

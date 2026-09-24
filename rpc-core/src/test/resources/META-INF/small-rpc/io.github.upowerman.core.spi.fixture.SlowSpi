@@ -1,0 +1,4 @@
+# C-2 并发夹具：slow-* 构造可被闸门阻塞，fast-* 立即可用
+slow-a=io.github.upowerman.core.spi.fixture.SlowSpiImpl
+slow-b=io.github.upowerman.core.spi.fixture.SlowSpiImpl
+fast-a=io.github.upowerman.core.spi.fixture.FastSpiImpl
