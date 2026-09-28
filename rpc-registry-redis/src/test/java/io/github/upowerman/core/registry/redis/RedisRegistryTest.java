@@ -201,4 +201,42 @@ public class RedisRegistryTest {
         Assert.assertTrue("provider 被动退出后 stale 实例应被剔除（不永久占坑）",
                 snapshots.get(snapshots.size() - 1).isEmpty());
     }
+
+    /**
+     * N-4 回归：Redis 连接不可达时 init 应 fail-fast（ping 探测），不静默吞掉、不留半初始化资源
+     */
+    @Test
+    public void testInitFailsFastWhenRedisUnreachable() {
+        RedisRegistry r = new RedisRegistry();
+        Map<String, String> param = new HashMap<String, String>();
+        param.put("redis.host", "127.0.0.1");
+        param.put("redis.port", "1");
+        try {
+            r.init(param);
+            Assert.fail("Redis 不可达时 init 应 fail-fast 抛 IllegalStateException");
+        } catch (IllegalStateException expected) {
+            // 预期：连接不可达启动期大声失败
+        }
+        r.destroy();
+    }
+
+    /**
+     * N-4 回归：stale 窗口小于心跳周期时 init 应大声拒绝（否则 provider 自己续期前租约已过期，永远被判死）
+     */
+    @Test
+    public void testInitRejectsStaleWindowSmallerThanHeartbeat() {
+        RedisRegistry r = new RedisRegistry();
+        Map<String, String> param = new HashMap<String, String>();
+        param.put("redis.host", "127.0.0.1");
+        param.put("redis.port", "6379");
+        param.put("redis.heartbeat-ms", "1000");
+        param.put("redis.heartbeat-stale-ms", "100");
+        try {
+            r.init(param);
+            Assert.fail("stale 窗口 < 心跳周期时 init 应抛 IllegalArgumentException");
+        } catch (IllegalArgumentException expected) {
+            // 预期：非法配置启动期大声失败
+        }
+        r.destroy();
+    }
 }
