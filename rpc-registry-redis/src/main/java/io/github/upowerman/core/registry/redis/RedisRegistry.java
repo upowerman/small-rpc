@@ -129,10 +129,15 @@ public class RedisRegistry implements Registry {
         } else {
             this.heartbeatStaleMs = DEFAULT_HEARTBEAT_STALE_MS;
         }
-        // stale 窗口必须 >= 心跳周期，否则 provider 自己续期前键已过期，永远被 consumer 视为死亡
-        if (heartbeatStaleMs < heartbeatMs) {
+        // N-3：stale 窗口必须严格大于心跳周期——TTL == 续期周期时，调度抖动可让键在续期前一刻过期，实例周期性闪断
+        if (heartbeatStaleMs <= heartbeatMs) {
             throw new IllegalArgumentException("redis.heartbeat-stale-ms(" + heartbeatStaleMs
-                    + ") must be >= redis.heartbeat-ms(" + heartbeatMs + ")");
+                    + ") must be strictly greater than redis.heartbeat-ms(" + heartbeatMs + ")");
+        }
+        // N-1：psetex 为 long 毫秒参数无 int 截断；仍防呆一个上界（租约窗口超过它已无运维意义）
+        if (heartbeatStaleMs > 30L * 24 * 60 * 60 * 1000) {
+            throw new IllegalArgumentException("redis.heartbeat-stale-ms(" + heartbeatStaleMs
+                    + ") 过大（上限 30 天）");
         }
 
         JedisPoolConfig poolConfig = new JedisPoolConfig();
@@ -375,7 +380,9 @@ public class RedisRegistry implements Registry {
             return;
         }
         try (Jedis jedis = pool.getResource()) {
-            jedis.setex(heartbeatKey, (int) heartbeatStaleMs, "1");
+            // 必须用 psetex（毫秒）：setex 的 TTL 单位是秒，把毫秒值传进去会把 5s 租约变成 5000s（约 83 分钟），
+            // SIGKILL 后实例远晚于 README 承诺的时间才被摘除（N-1 的真实根因，比 int 截断更实质）
+            jedis.psetex(heartbeatKey, heartbeatStaleMs, "1");
         } catch (Exception e) {
             logger.warn("Failed to renew heartbeat key '{}': {}", heartbeatKey, e.getMessage());
         }
