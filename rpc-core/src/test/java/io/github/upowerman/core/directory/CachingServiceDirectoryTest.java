@@ -110,6 +110,27 @@ public class CachingServiceDirectoryTest {
     }
 
     /**
+     * I-1 回归：subscribe 失败后必须回滚幂等标记，注册中心恢复后消费端能重新订阅（否则永久空列表）
+     */
+    @Test
+    public void testSubscribeRetryAfterFailureSucceeds() {
+        String service = "io.github.upowerman.DemoService";
+        mockRegistry.throwOnSubscribe = true;
+        directory.subscribe(service);
+        Assert.assertEquals("首次订阅失败后 list 应为空", 0, directory.list(service).size());
+
+        // 注册中心恢复：第二次 subscribe 必须真正执行（不被前次失败的幂等标记吞掉）
+        mockRegistry.throwOnSubscribe = false;
+        directory.subscribe(service);
+        // subscribeCount 只在成功时自增：第一次抛异常时 mock 未计数，故成功次数为 1
+        Assert.assertEquals("注册中心恢复后应能重新订阅", 1, mockRegistry.subscribeCount);
+
+        ServiceInstance instA = new ServiceInstance("127.0.0.1:8080");
+        mockRegistry.trigger(service, Collections.singletonList(instA));
+        Assert.assertEquals("重新订阅成功后应能收到推送", 1, directory.list(service).size());
+    }
+
+    /**
      * 6. 推送空列表 → 缓存被清空（合法变更，与"降级"区分）
      */
     @Test

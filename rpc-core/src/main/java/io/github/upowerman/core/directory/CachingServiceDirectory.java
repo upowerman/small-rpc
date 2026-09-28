@@ -69,6 +69,9 @@ public class CachingServiceDirectory implements ServiceDirectory {
             });
         } catch (Throwable t) {
             logger.warn("Failed to subscribe service '{}' from registry: {}", service, t.getMessage(), t);
+            // 回滚幂等标记：失败后若不移除，该服务会被永久标记为"已订阅"，订阅重试被幂等短路 → 服务永久空列表。
+            // 注册中心临时不可达后恢复时，消费端必须能重新订阅（Resilience 不永久失败）。
+            subscribedServices.remove(service);
         }
     }
 }
