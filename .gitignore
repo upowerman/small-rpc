@@ -154,3 +154,6 @@ codex-cli/
 .trae/
 .aide/
 CONVENTIONS.md
+
+# 项目文档（本地维护，不入库）
+docs/
