@@ -82,10 +82,22 @@ public class ZookeeperRegistry implements Registry {
                 .retryPolicy(new ExponentialBackoffRetry(1000, 3))
                 .build();
         client.start();
+        boolean connected;
         try {
-            client.blockUntilConnected(connectionTimeout, TimeUnit.MILLISECONDS);
+            connected = client.blockUntilConnected(connectionTimeout, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while connecting to ZooKeeper: " + connect, e);
+        }
+        if (!connected) {
+            // M-2 fail-fast：连接不可达在启动期大声失败，而非首次 register/subscribe 才暴露（对齐 init 的 fail-fast 语义）
+            try {
+                client.close();
+            } catch (Throwable ignored) {
+            }
+            client = null;
+            throw new IllegalStateException("ZooKeeper 连接不可达 connect='" + connect
+                    + "'（connection-timeout-ms=" + connectionTimeout + "，init fail-fast）");
         }
         destroyed = false;
         logger.info("ZookeeperRegistry initialized with connect='{}', namespace='{}'", connect, namespace);

@@ -127,12 +127,78 @@ public class RedisRegistryTest {
         Thread[] threads = new Thread[Thread.activeCount() + 10];
         int n = Thread.enumerate(threads);
         boolean foundPollThread = false;
+        boolean foundHeartbeatThread = false;
         for (int i = 0; i < n; i++) {
-            if (threads[i] != null && threads[i].getName().contains("small-rpc-redis-poll") && threads[i].isAlive()) {
-                foundPollThread = true;
-                break;
+            if (threads[i] != null && threads[i].isAlive()) {
+                String name = threads[i].getName();
+                if (name.contains("small-rpc-redis-poll")) {
+                    foundPollThread = true;
+                }
+                if (name.contains("small-rpc-redis-heartbeat")) {
+                    foundHeartbeatThread = true;
+                }
             }
         }
-        Assert.assertFalse("destroy 后不应留存活跃的调度轮询线程", foundPollThread);
+        Assert.assertFalse("destroy 后不应留存活跃的 poll 线程", foundPollThread);
+        Assert.assertFalse("destroy 后不应留存活跃的 heartbeat 线程", foundHeartbeatThread);
+    }
+
+    /**
+     * I-2 回归：provider 被 kill -9 等被动退出后，heartbeat 租约键过期即被 consumer 剔除（不永久失败）。
+     * 手动模拟 provider（不经 register，避免测试进程启动心跳线程干扰）：两个实例均有租约 → 快照 2 个；
+     * 删除租约键模拟 provider 心跳停 → 下一轮 poll 后快照变空。
+     */
+    @Test
+    public void testStaleProviderExcludedAfterHeartbeatExpiry() throws Exception {
+        Map<String, String> param = new HashMap<String, String>();
+        param.put("redis.host", "127.0.0.1");
+        param.put("redis.port", "6379");
+        param.put("redis.key-prefix", keyPrefix);
+        param.put("redis.poll-interval-ms", "200");
+        registry.init(param);
+
+        String service = "io.github.upowerman.HelloService";
+        String addr1 = "127.0.0.1:8080";
+        String addr2 = "127.0.0.1:8081";
+        String regKey = keyPrefix + ":registry:" + service;
+        String hb1 = keyPrefix + ":registry-heartbeat:" + service + ":" + addr1;
+        String hb2 = keyPrefix + ":registry-heartbeat:" + service + ":" + addr2;
+
+        // 手动模拟 provider：两个实例都写存活租约
+        try (Jedis sim = new Jedis("127.0.0.1", 6379, 1000)) {
+            sim.sadd(regKey, addr1, addr2);
+            sim.setex(hb1, 60, "1");
+            sim.setex(hb2, 60, "1");
+        }
+
+        final List<List<ServiceInstance>> snapshots = new CopyOnWriteArrayList<List<ServiceInstance>>();
+        ServiceListener listener = new ServiceListener() {
+            @Override
+            public void onChange(List<ServiceInstance> instances) {
+                snapshots.add(instances);
+            }
+        };
+        registry.subscribe(service, listener);
+
+        // 初始快照：两个实例都有存活租约 → 2 个
+        Assert.assertTrue("subscribe 应立即收到快照", !snapshots.isEmpty());
+        Assert.assertEquals(2, snapshots.get(0).size());
+
+        // 模拟 provider 被 kill -9：删除所有租约键（provider 心跳线程已死，不会续期）
+        try (Jedis sim = new Jedis("127.0.0.1", 6379, 1000)) {
+            sim.del(hb1, hb2);
+        }
+
+        // 等下一轮 poll（200ms）发现全部 stale → 快照变空（不永久失败）
+        long deadline = System.currentTimeMillis() + 5000;
+        while (System.currentTimeMillis() < deadline) {
+            List<ServiceInstance> cur = snapshots.get(snapshots.size() - 1);
+            if (cur.isEmpty()) {
+                break;
+            }
+            Thread.sleep(100);
+        }
+        Assert.assertTrue("provider 被动退出后 stale 实例应被剔除（不永久占坑）",
+                snapshots.get(snapshots.size() - 1).isEmpty());
     }
 }

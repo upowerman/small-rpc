@@ -282,7 +282,8 @@ public class HelloController {
    ```
 2. 启动两台 Provider 与一台 Consumer，附带参数 `--spring.profiles.active=redis`；
 3. 发起调用观察负载均衡；
-4. 优雅关闭实例 1（`kill <实例1PID>`），Provider 自动触发注销，Redis 轮询任务比对后在 3~5 秒内自动更新客户端缓存，后续调用平滑切换至 7082 存活实例。
+4. 优雅关闭实例 1（`kill <实例1PID>`），Provider 自动触发注销（SREM），Redis 轮询任务比对后在 3~5 秒内自动更新客户端缓存，后续调用平滑切换至 7082 存活实例。
+5. **被动退出也能摘除**：Redis 用「存活租约键」（`{prefix}:registry-heartbeat:{service}:{address}`）判定实例存活——Provider 周期性续期（`heartbeat-ms`），Consumer 轮询时剔除租约已过期（超过 `heartbeat-stale-ms` 未续期）的实例。因此 **`kill -9` / OOM / 容器驱逐** 这类无法执行优雅注销的被动退出，也会在租约过期后的下一个轮询周期被自动摘除，不会永久占坑。
 
 ---
 
@@ -307,6 +308,8 @@ public class HelloController {
 | `small-rpc.registry.redis.password` | 无 | String | Redis 认证密码（无密码留空） |
 | `small-rpc.registry.redis.key-prefix` | `small-rpc:registry:` | String | Redis 注册表集合 Key 前缀 |
 | `small-rpc.registry.redis.poll-interval-ms` | `3000` | Long | Redis 注册表差量比对拉取周期（毫秒） |
+| `small-rpc.registry.redis.heartbeat-ms` | `1000` | Long | Provider 心跳续期周期（毫秒）；续写实例存活租约键 |
+| `small-rpc.registry.redis.heartbeat-stale-ms` | `5000` | Long | 存活租约键 TTL（毫秒）；Provider 被动退出超过此值未续期即被 Consumer 剔除，须 ≥ heartbeat-ms |
 | `small-rpc.registry.param.*` | - | Map<String, String> | 底层注册中心原始通用参数字典（向下兼容，同名键优先级高于强类型默认值） |
 | `small-rpc.loadbalance` | `random` | String | 全局负载均衡算法 SPI 名：`random`（随机）或 `roundrobin`（轮询） |
 

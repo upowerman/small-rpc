@@ -63,6 +63,25 @@ public class ZookeeperRegistryTest {
         }
     }
 
+    /**
+     * M-2 fail-fast：ZK 连接不可达时 init 应大声抛异常（而非首次 register/subscribe 才暴露）。
+     * 用不可达端口验证，不依赖本机 ZK 实际状态。
+     */
+    @Test
+    public void testInitFailsFastWhenZkUnreachable() {
+        ZookeeperRegistry r = new ZookeeperRegistry();
+        Map<String, String> param = new HashMap<String, String>();
+        param.put("zk.connect", "127.0.0.1:1");
+        param.put("zk.connection-timeout-ms", "500");
+        try {
+            r.init(param);
+            Assert.fail("ZK 不可达时 init 应 fail-fast 抛 IllegalArgumentException/IllegalStateException");
+        } catch (IllegalStateException expected) {
+            // 预期：连接不可达启动期大声失败
+        }
+        r.destroy(); // 幂等，确保不残留
+    }
+
     @Test
     public void testRegisterAndSubscribeAndUnregisterLifecycle() throws Exception {
         Map<String, String> param = new HashMap<String, String>();

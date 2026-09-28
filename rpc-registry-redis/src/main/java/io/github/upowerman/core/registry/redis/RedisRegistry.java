@@ -34,6 +34,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  *   <li>比对发现与上次快照有差异时才触发 {@link ServiceListener#onChange(List)}；</li>
  *   <li>同一 service 状态由该 service 的 task 实例锁同步保护（Review Focus 4）；</li>
  *   <li>unsubscribe 在最后一个 listener 移除时取消定时任务；</li>
+ *   <li>存活判定：Provider 注册时写入并周期性续期「存活租约键」（{@code {prefix}:registry-heartbeat:{service}:{address}}），
+ *       Consumer 轮询时只把租约未过期的成员视作存活——优雅退出走 SREM 摘除，被动退出（kill -9/OOM）靠租约 TTL 过期剔除，不永久占坑；</li>
  *   <li>destroy 释放连接池并立即停止调度器，不留存活线程。</li>
  * </ul>
  */
@@ -47,11 +49,20 @@ public class RedisRegistry implements Registry {
     private static final int DEFAULT_TIMEOUT_MS = 2000;
     private static final String DEFAULT_KEY_PREFIX = "small-rpc";
     private static final long DEFAULT_POLL_INTERVAL_MS = 3000;
+    private static final long DEFAULT_HEARTBEAT_MS = 1000;
+    /** heartbeat 键 TTL：provider 被 kill -9/OOM 等被动退出时，超过此值未续期即被 consumer 视为 stale 剔除 */
+    private static final long DEFAULT_HEARTBEAT_STALE_MS = 5000;
+    private static final String HEARTBEAT_SEGMENT = ":registry-heartbeat:";
 
     private volatile JedisPool pool;
     private volatile ScheduledExecutorService scheduler;
     private volatile String keyPrefix = DEFAULT_KEY_PREFIX;
     private volatile long pollIntervalMs = DEFAULT_POLL_INTERVAL_MS;
+    private volatile long heartbeatMs = DEFAULT_HEARTBEAT_MS;
+    private volatile long heartbeatStaleMs = DEFAULT_HEARTBEAT_STALE_MS;
+    /** 需周期续期的 provider heartbeat 键（provider 进程注册后登记，SIGKILL 后停止续期即过期） */
+    private final Set<String> heartbeatKeys = ConcurrentHashMap.newKeySet();
+    private volatile ScheduledExecutorService heartbeatScheduler;
     private final ConcurrentHashMap<String, ServicePollingTask> tasks = new ConcurrentHashMap<>();
     private volatile boolean destroyed = false;
 
@@ -102,6 +113,28 @@ public class RedisRegistry implements Registry {
             this.pollIntervalMs = DEFAULT_POLL_INTERVAL_MS;
         }
 
+        if (param != null && param.containsKey("redis.heartbeat-ms")) {
+            try {
+                this.heartbeatMs = Long.parseLong(param.get("redis.heartbeat-ms"));
+            } catch (NumberFormatException ignored) {
+            }
+        } else {
+            this.heartbeatMs = DEFAULT_HEARTBEAT_MS;
+        }
+        if (param != null && param.containsKey("redis.heartbeat-stale-ms")) {
+            try {
+                this.heartbeatStaleMs = Long.parseLong(param.get("redis.heartbeat-stale-ms"));
+            } catch (NumberFormatException ignored) {
+            }
+        } else {
+            this.heartbeatStaleMs = DEFAULT_HEARTBEAT_STALE_MS;
+        }
+        // stale 窗口必须 >= 心跳周期，否则 provider 自己续期前键已过期，永远被 consumer 视为死亡
+        if (heartbeatStaleMs < heartbeatMs) {
+            throw new IllegalArgumentException("redis.heartbeat-stale-ms(" + heartbeatStaleMs
+                    + ") must be >= redis.heartbeat-ms(" + heartbeatMs + ")");
+        }
+
         JedisPoolConfig poolConfig = new JedisPoolConfig();
         poolConfig.setMaxTotal(20);
         poolConfig.setMaxIdle(10);
@@ -109,6 +142,15 @@ public class RedisRegistry implements Registry {
         poolConfig.setTestOnBorrow(false);
 
         this.pool = new JedisPool(poolConfig, host, port, timeout, password, database);
+        // M-2 fail-fast：连接不可达在启动期大声失败，而非首次 register/subscribe 才暴露（行为对齐 init 的 fail-fast 语义）
+        try (Jedis jedis = pool.getResource()) {
+            jedis.ping();
+        } catch (Exception e) {
+            pool.close();
+            pool = null;
+            throw new IllegalStateException("Redis 连接不可达 host='" + host + "', port=" + port
+                    + "（init fail-fast）", e);
+        }
         this.scheduler = Executors.newSingleThreadScheduledExecutor(new ThreadFactory() {
             @Override
             public Thread newThread(Runnable r) {
@@ -138,6 +180,7 @@ public class RedisRegistry implements Registry {
             }
         }
         tasks.clear();
+        heartbeatKeys.clear();
 
         if (scheduler != null) {
             scheduler.shutdownNow();
@@ -147,6 +190,15 @@ public class RedisRegistry implements Registry {
                 Thread.currentThread().interrupt();
             }
             scheduler = null;
+        }
+        if (heartbeatScheduler != null) {
+            heartbeatScheduler.shutdownNow();
+            try {
+                heartbeatScheduler.awaitTermination(2, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            heartbeatScheduler = null;
         }
 
         if (pool != null) {
@@ -164,12 +216,19 @@ public class RedisRegistry implements Registry {
     public void register(String service, ServiceInstance instance) {
         checkStarted();
         String key = buildRegistryKey(service);
+        String address = instance.getAddress();
         try (Jedis jedis = pool.getResource()) {
-            jedis.sadd(key, instance.getAddress());
-            logger.info("Registered service '{}' instance '{}' to Redis", service, instance.getAddress());
+            jedis.sadd(key, address);
         } catch (Exception e) {
             throw new IllegalStateException("Failed to register instance to Redis: " + key, e);
         }
+        // I-2:写 heartbeat 租约键并登记续期。provider 被动退出（kill -9/OOM）后租约键 TTL 过期，
+        // consumer 侧据此剔除 stale 实例，避免僵尸成员永久占坑（优雅退出走 SREM）。
+        String heartbeatKey = buildHeartbeatKey(service, address);
+        touchHeartbeat(heartbeatKey);
+        heartbeatKeys.add(heartbeatKey);
+        ensureHeartbeatScheduler();
+        logger.info("Registered service '{}' instance '{}' to Redis (heartbeat active)", service, address);
     }
 
     @Override
@@ -178,12 +237,15 @@ public class RedisRegistry implements Registry {
             return;
         }
         String key = buildRegistryKey(service);
+        String address = instance.getAddress();
         try (Jedis jedis = pool.getResource()) {
-            jedis.srem(key, instance.getAddress());
-            logger.info("Unregistered service '{}' instance '{}' from Redis", service, instance.getAddress());
+            jedis.srem(key, address);
+            jedis.del(buildHeartbeatKey(service, address));
         } catch (Exception e) {
             throw new IllegalStateException("Failed to unregister instance from Redis: " + key, e);
         }
+        heartbeatKeys.remove(buildHeartbeatKey(service, address));
+        logger.info("Unregistered service '{}' instance '{}' from Redis (heartbeat removed)", service, address);
     }
 
     @Override
@@ -207,10 +269,14 @@ public class RedisRegistry implements Registry {
         synchronized (task) {
             task.listeners.add(listener);
 
-            // 首次订阅时立即拉取一次并推快照
-            Set<String> current = fetchCurrentMembers(task.redisKey);
-            task.lastSnapshot = new HashSet<>(current);
-            pushSnapshot(service, current, listener);
+            // 首次订阅时立即拉取一次、剔除 stale 后推快照
+            List<ServiceInstance> alive = filterAlive(service, task.redisKey, fetchCurrentMembers(task.redisKey));
+            Set<String> current = new HashSet<>();
+            for (ServiceInstance si : alive) {
+                current.add(si.getAddress());
+            }
+            task.lastSnapshot = current;
+            pushSnapshot(service, alive, listener);
 
             // 启动定时轮询任务（若尚未启动）
             if (task.future == null || task.future.isCancelled()) {
@@ -270,14 +336,14 @@ public class RedisRegistry implements Registry {
             if (task.listeners.isEmpty() || destroyed) {
                 return;
             }
-            Set<String> current = fetchCurrentMembers(task.redisKey);
+            List<ServiceInstance> alive = filterAlive(task.service, task.redisKey, fetchCurrentMembers(task.redisKey));
+            Set<String> current = new HashSet<>();
+            for (ServiceInstance si : alive) {
+                current.add(si.getAddress());
+            }
             if (!current.equals(task.lastSnapshot)) {
                 task.lastSnapshot = new HashSet<>(current);
-                List<ServiceInstance> instances = new ArrayList<>(current.size());
-                for (String addr : current) {
-                    instances.add(new ServiceInstance(addr));
-                }
-                List<ServiceInstance> snapshot = Collections.unmodifiableList(instances);
+                List<ServiceInstance> snapshot = Collections.unmodifiableList(alive);
                 for (ServiceListener l : task.listeners) {
                     try {
                         l.onChange(snapshot);
@@ -289,17 +355,92 @@ public class RedisRegistry implements Registry {
         }
     }
 
-    private void pushSnapshot(String service, Set<String> addresses, ServiceListener listener) {
-        List<ServiceInstance> instances = new ArrayList<>(addresses.size());
-        for (String addr : addresses) {
-            instances.add(new ServiceInstance(addr));
-        }
+    private void pushSnapshot(String service, List<ServiceInstance> instances, ServiceListener listener) {
         List<ServiceInstance> snapshot = Collections.unmodifiableList(instances);
         try {
             listener.onChange(snapshot);
         } catch (Throwable t) {
             logger.warn("Error pushing initial snapshot to listener for service '{}': {}", service, t.getMessage(), t);
         }
+    }
+
+    /** 例：{prefix}:registry-heartbeat:{service}:{address} —— 单个实例的存活租约键 */
+    private String buildHeartbeatKey(String service, String address) {
+        return keyPrefix + HEARTBEAT_SEGMENT + service + ":" + address;
+    }
+
+    /** 写（续）一次 heartbeat 租约键，TTL = stale 窗口 */
+    private void touchHeartbeat(String heartbeatKey) {
+        if (pool == null || pool.isClosed()) {
+            return;
+        }
+        try (Jedis jedis = pool.getResource()) {
+            jedis.setex(heartbeatKey, (int) heartbeatStaleMs, "1");
+        } catch (Exception e) {
+            logger.warn("Failed to renew heartbeat key '{}': {}", heartbeatKey, e.getMessage());
+        }
+    }
+
+    /** provider 心跳续期任务：周期刷新所有已登记实例的租约键 */
+    private void refreshHeartbeats() {
+        if (destroyed || heartbeatKeys.isEmpty() || pool == null || pool.isClosed()) {
+            return;
+        }
+        for (String key : heartbeatKeys) {
+            touchHeartbeat(key);
+        }
+    }
+
+    private void ensureHeartbeatScheduler() {
+        if (heartbeatScheduler != null) {
+            return;
+        }
+        synchronized (this) {
+            if (heartbeatScheduler == null) {
+                heartbeatScheduler = Executors.newSingleThreadScheduledExecutor(new ThreadFactory() {
+                    @Override
+                    public Thread newThread(Runnable r) {
+                        Thread t = new Thread(r, "small-rpc-redis-heartbeat-" + THREAD_COUNTER.getAndIncrement());
+                        t.setDaemon(true);
+                        return t;
+                    }
+                });
+                heartbeatScheduler.scheduleWithFixedDelay(new Runnable() {
+                    @Override
+                    public void run() {
+                        refreshHeartbeats();
+                    }
+                }, heartbeatMs, heartbeatMs, TimeUnit.MILLISECONDS);
+            }
+        }
+    }
+
+    /**
+     * I-2：从成员集筛出"存活"实例——存在 heartbeat 租约键（未过期）才算存活。
+     * provider 正常运行时持续续期；被 kill -9/OOM 被动退出后键过期即被剔除，避免僵尸成员永久占坑。
+     * EXISTS 异常时降级返回全量（不误伤存活实例，宁可暂容 stale 也不清空缓存——降级优先于精确）。
+     */
+    private List<ServiceInstance> filterAlive(String service, String redisKey, Set<String> members) {
+        List<String> alive = new ArrayList<>();
+        if (members.isEmpty()) {
+            return new ArrayList<>();
+        }
+        try (Jedis jedis = pool.getResource()) {
+            for (String addr : members) {
+                if (Boolean.TRUE.equals(jedis.exists(buildHeartbeatKey(service, addr)))) {
+                    alive.add(addr);
+                }
+            }
+        } catch (Throwable t) {
+            logger.warn("Failed to check heartbeat for key '{}', falling back to full member list: {}",
+                    redisKey, t.getMessage());
+            alive.addAll(members);
+        }
+        List<ServiceInstance> instances = new ArrayList<>(alive.size());
+        for (String addr : alive) {
+            instances.add(new ServiceInstance(addr));
+        }
+        return instances;
     }
 
     private static class ServicePollingTask {
