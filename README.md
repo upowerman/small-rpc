@@ -284,6 +284,7 @@ public class HelloController {
 3. 发起调用观察负载均衡；
 4. 优雅关闭实例 1（`kill <实例1PID>`），Provider 自动触发注销（SREM），Redis 轮询任务比对后在 3~5 秒内自动更新客户端缓存，后续调用平滑切换至 7082 存活实例。
 5. **被动退出也能摘除**：Redis 用「存活租约键」（`{prefix}:registry-heartbeat:{service}:{address}`）判定实例存活——Provider 周期性续期（`heartbeat-ms`），Consumer 轮询时剔除租约已过期（超过 `heartbeat-stale-ms` 未续期）的实例。因此 **`kill -9` / OOM / 容器驱逐** 这类无法执行优雅注销的被动退出，也会在租约过期后的下一个轮询周期被自动摘除，不会永久占坑。
+   > 升级注意：存活判定依赖租约键，只有 2.0 的 Provider 会写租约。若注册表混入**旧版本 Provider 或运维手工 `SADD` 的成员**（无租约键），Consumer 会将其视为 stale 立即剔除（2.0 为首发版本，仅影响混合部署/手工造数场景）。
 
 ---
 

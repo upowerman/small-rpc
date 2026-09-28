@@ -238,5 +238,69 @@ public class RedisRegistryTest {
             // 预期：非法配置启动期大声失败
         }
         r.destroy();
+
+        // N-3 等号边界：stale == heartbeat 同样拒绝（调度抖动下键会先于续期过期，实例周期性闪断）
+        RedisRegistry r2 = new RedisRegistry();
+        Map<String, String> equalParam = new HashMap<String, String>();
+        equalParam.put("redis.host", "127.0.0.1");
+        equalParam.put("redis.port", "6379");
+        equalParam.put("redis.heartbeat-ms", "1000");
+        equalParam.put("redis.heartbeat-stale-ms", "1000");
+        try {
+            r2.init(equalParam);
+            Assert.fail("stale == heartbeat 时 init 应抛 IllegalArgumentException（须严格大于）");
+        } catch (IllegalArgumentException expected) {
+            // 预期
+        }
+        r2.destroy();
+    }
+
+    /**
+     * N-1 配套：租约「自然 TTL 过期」路径——不手动 DEL，靠 TTL 到期后被剔除。
+     * 钉住毫秒语义：stale-ms=300 必须在秒级内过期；若实现错用 setex（秒单位），300 秒内不会剔除，本测试失败。
+     */
+    @Test
+    public void testHeartbeatTtlExpiresNaturally() throws Exception {
+        Map<String, String> param = new HashMap<String, String>();
+        param.put("redis.host", "127.0.0.1");
+        param.put("redis.port", "6379");
+        param.put("redis.key-prefix", keyPrefix);
+        param.put("redis.poll-interval-ms", "200");
+        param.put("redis.heartbeat-ms", "100"); // 须 < stale（N-3 严格大于校验）；测试不经 register，心跳任务空转不干扰
+        param.put("redis.heartbeat-stale-ms", "300");
+        registry.init(param);
+
+        String service = "io.github.upowerman.HelloService";
+        String addr1 = "127.0.0.1:8080";
+        String regKey = keyPrefix + ":registry:" + service;
+        String hb1 = keyPrefix + ":registry-heartbeat:" + service + ":" + addr1;
+
+        // 模拟 provider：写 300ms 租约后立即死亡（不再续期）
+        try (Jedis sim = new Jedis("127.0.0.1", 6379, 1000)) {
+            sim.sadd(regKey, addr1);
+            sim.psetex(hb1, 300, "1");
+        }
+
+        final List<List<ServiceInstance>> snapshots = new CopyOnWriteArrayList<List<ServiceInstance>>();
+        ServiceListener listener = new ServiceListener() {
+            @Override
+            public void onChange(List<ServiceInstance> instances) {
+                snapshots.add(instances);
+            }
+        };
+        registry.subscribe(service, listener);
+        Assert.assertTrue("subscribe 应立即收到快照", !snapshots.isEmpty());
+
+        // 300ms 租约自然过期 + 一轮 poll（200ms）→ 快照变空
+        long deadline = System.currentTimeMillis() + 5000;
+        while (System.currentTimeMillis() < deadline) {
+            List<ServiceInstance> cur = snapshots.get(snapshots.size() - 1);
+            if (cur.isEmpty()) {
+                break;
+            }
+            Thread.sleep(100);
+        }
+        Assert.assertTrue("租约自然过期后 stale 实例应被剔除（毫秒 TTL 语义）",
+                snapshots.get(snapshots.size() - 1).isEmpty());
     }
 }
