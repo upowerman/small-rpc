@@ -1,0 +1,109 @@
+# 发布到 Maven Central（Sonatype Central Portal）
+#
+# 触发：推送形如 2.1.2 的 tag（与仓库既有 tag 风格一致，无 v 前缀）
+# 手动：Actions 页面 Run workflow，不勾 publish 则只做「打包 + 签名」干跑，不上传
+#
+# 仓库 Secrets 需要配置 4 个：
+#   CENTRAL_USERNAME   Central Portal 用户名
+#   CENTRAL_TOKEN      Central Portal 用户令牌（不是登录密码）
+#   GPG_PRIVATE_KEY    私钥全文（ASCII armor）
+#   GPG_PASSPHRASE     私钥密码短语
+#
+# 注意：本工作流不使用 pom 里的 release profile 之外的任何配置，
+#       pom.xml 无需为 CI 做任何修改。
+name: Release
+
+on:
+  push:
+    tags:
+      - '[0-9]*.[0-9]*.[0-9]*'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: '勾选 = 真正上传到 Central；不勾 = 只做打包+签名干跑'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# 发布串行化：两个 tag 并发会撞 Central 的版本占用，直接失败
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build & publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # corretto-8 对齐 mise.toml 里的 corretto-8.502.07.1，保证产物与本地一致
+      - name: Set up JDK 8
+        uses: actions/setup-java@v4
+        with:
+          distribution: corretto
+          java-version: '8'
+          cache: maven
+
+      # 防呆：tag 和 pom 版本不一致时直接失败，避免把 2.1.2 发成 2.1.1
+      - name: Verify tag matches pom version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          python3 - <<'PY'
+          import os
+          import xml.etree.ElementTree as ET
+
+          ns = {'m': 'http://maven.apache.org/POM/4.0.0'}
+          pom_version = ET.parse('pom.xml').getroot().findtext('m:version', namespaces=ns)
+          tag = os.environ['GITHUB_REF'].replace('refs/tags/', '', 1)
+
+          print('pom version = %s' % pom_version)
+          print('git tag     = %s' % tag)
+          if tag != pom_version:
+              raise SystemExit('::error::tag %s 与 pom 版本 %s 不一致，拒绝发布' % (tag, pom_version))
+          PY
+
+      - name: Import GPG private key
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: |
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+          echo "--- 已导入的私钥 ---"
+          gpg --list-secret-keys --keyid-format=long
+
+      # 只写 Central 凭据；不配 aliyun 镜像，GitHub runner 直连 Central 更快更稳
+      - name: Write ~/.m2/settings.xml
+        env:
+          CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
+          CENTRAL_TOKEN: ${{ secrets.CENTRAL_TOKEN }}
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml <<EOF
+          <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0">
+            <servers>
+              <server>
+                <id>central</id>
+                <username>${CENTRAL_USERNAME}</username>
+                <password>${CENTRAL_TOKEN}</password>
+              </server>
+            </servers>
+          </settings>
+          EOF
+
+      # 干跑：走完 package/verify（含 sources、javadoc、GPG 签名），但不 deploy
+      - name: Dry run (package + sign only)
+        if: github.event_name == 'workflow_dispatch' && !inputs.publish
+        env:
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: mvn -B -Prelease verify -Dgpg.passphrase="$GPG_PASSPHRASE"
+
+      - name: Publish to Maven Central
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish)
+        env:
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: mvn -B -Prelease deploy -Dgpg.passphrase="$GPG_PASSPHRASE"
