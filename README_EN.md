@@ -208,7 +208,7 @@ Add the starter to your Spring Boot application's `pom.xml` (comes pre-packaged 
 <dependency>
     <groupId>io.github.upowerman</groupId>
     <artifactId>small-rpc-spring-boot-starter</artifactId>
-    <version>2.1.1</version>
+    <version>2.1.2</version>
 </dependency>
 
 <!-- Production cluster deployment: add distributed registry implementation on demand (choose one) -->
@@ -216,14 +216,14 @@ Add the starter to your Spring Boot application's `pom.xml` (comes pre-packaged 
 <dependency>
     <groupId>io.github.upowerman</groupId>
     <artifactId>rpc-registry-zookeeper</artifactId>
-    <version>2.1.1</version>
+    <version>2.1.2</version>
 </dependency>
 
 <!-- 2. Redis Registry -->
 <dependency>
     <groupId>io.github.upowerman</groupId>
     <artifactId>rpc-registry-redis</artifactId>
-    <version>2.1.1</version>
+    <version>2.1.2</version>
 </dependency>
 ```
 
