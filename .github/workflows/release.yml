@@ -107,3 +107,13 @@ jobs:
         env:
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: mvn -B -Prelease deploy -Dgpg.passphrase="$GPG_PASSPHRASE"
+
+      # 上传失败时把待发布的 bundle 留档，便于定位 Central 侧校验问题
+      - name: Upload bundle for diagnosis
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: central-bundle
+          path: target/central-publishing/central-bundle.zip
+          if-no-files-found: warn
+          retention-days: 3
