@@ -208,7 +208,7 @@ small-rpc:
 <dependency>
     <groupId>io.github.upowerman</groupId>
     <artifactId>small-rpc-spring-boot-starter</artifactId>
-    <version>2.1.1</version>
+    <version>2.1.2</version>
 </dependency>
 
 <!-- 生产环境集群部署：按需引入分布式注册中心实现（二选一） -->
@@ -216,14 +216,14 @@ small-rpc:
 <dependency>
     <groupId>io.github.upowerman</groupId>
     <artifactId>rpc-registry-zookeeper</artifactId>
-    <version>2.1.1</version>
+    <version>2.1.2</version>
 </dependency>
 
 <!-- 2. Redis 注册中心 -->
 <dependency>
     <groupId>io.github.upowerman</groupId>
     <artifactId>rpc-registry-redis</artifactId>
-    <version>2.1.1</version>
+    <version>2.1.2</version>
 </dependency>
 ```
 
