@@ -51,7 +51,7 @@
         新增模块时只需在此登记，勿在子模块重复声明 groupId/version/依赖版本。
     -->
     <properties>
-        <revision>2.2.0</revision>
+        <revision>3.0.0</revision>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

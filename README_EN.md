@@ -92,7 +92,7 @@ git checkout 1.0.0
 git checkout 1.2.0
 
 # Check out the completed 2.x microkernel (pre-governance: weighted warmup / async / generic / metrics)
-git checkout 2.2.0
+git checkout 3.0.0
 
 # Switch back to the 3.0 governance-loop architecture
 git checkout master
@@ -297,7 +297,7 @@ Add the starter to your Spring Boot application's `pom.xml` (comes pre-packaged 
 <dependency>
     <groupId>io.github.upowerman</groupId>
     <artifactId>small-rpc-spring-boot-starter</artifactId>
-    <version>2.2.0</version>
+    <version>3.0.0</version>
 </dependency>
 
 <!-- Production cluster deployment: add distributed registry implementation on demand (choose one) -->
@@ -305,14 +305,14 @@ Add the starter to your Spring Boot application's `pom.xml` (comes pre-packaged 
 <dependency>
     <groupId>io.github.upowerman</groupId>
     <artifactId>rpc-registry-zookeeper</artifactId>
-    <version>2.2.0</version>
+    <version>3.0.0</version>
 </dependency>
 
 <!-- 2. Redis Registry -->
 <dependency>
     <groupId>io.github.upowerman</groupId>
     <artifactId>rpc-registry-redis</artifactId>
-    <version>2.2.0</version>
+    <version>3.0.0</version>
 </dependency>
 ```
 
@@ -375,19 +375,19 @@ The project includes ready-to-run demo modules (`rpc-example-server` and `rpc-ex
 
 2. **Start Provider Instance 1** (Web: 8090, RPC: 7081):
    ```bash
-   java -jar rpc-examples/rpc-example-server/target/rpc-example-server-2.2.0.jar \
+   java -jar rpc-examples/rpc-example-server/target/rpc-example-server-3.0.0.jar \
      --spring.profiles.active=zookeeper --server.port=8090 --small-rpc.provider.rpc2-port=7081
    ```
 
 3. **Start Provider Instance 2** (Web: 8092, RPC: 7082):
    ```bash
-   java -jar rpc-examples/rpc-example-server/target/rpc-example-server-2.2.0.jar \
+   java -jar rpc-examples/rpc-example-server/target/rpc-example-server-3.0.0.jar \
      --spring.profiles.active=zookeeper --server.port=8092 --small-rpc.provider.rpc2-port=7082
    ```
 
 4. **Start Consumer** (Web: 8091):
    ```bash
-   java -jar rpc-examples/rpc-example-client/target/rpc-example-client-2.2.0.jar \
+   java -jar rpc-examples/rpc-example-client/target/rpc-example-client-3.0.0.jar \
      --spring.profiles.active=zookeeper --server.port=8091
    ```
 
