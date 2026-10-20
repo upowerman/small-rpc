@@ -2,6 +2,7 @@ package io.github.upowerman.core.metrics;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -42,16 +43,36 @@ public final class RpcMetrics {
         c.maxRtNanos.accumulateAndGet(rtNanos, Math::max);
     }
 
+    /** 记录一次治理拒绝（熔断打开/限流/在途上限），reason 为小写短横线风格 */
+    public void recordRejection(String key, String reason) {
+        Counters c = counters.computeIfAbsent(key == null ? "unknown" : key, k -> new Counters());
+        c.rejections.computeIfAbsent(reason, r -> new AtomicLong()).incrementAndGet();
+    }
+
+    /** 记录一次降级兜底触发（fallback 接管了失败调用） */
+    public void recordDegraded(String key) {
+        counters.computeIfAbsent(key == null ? "unknown" : key, k -> new Counters()).degraded.incrementAndGet();
+    }
+
     /** 当前全部指标的不可变快照（调用方安全遍历） */
     public List<Stat> snapshot() {
         List<Stat> stats = new ArrayList<Stat>(counters.size());
         for (Map.Entry<String, Counters> entry : counters.entrySet()) {
             Counters c = entry.getValue();
             stats.add(new Stat(entry.getKey(), c.total.get(), c.success.get(), c.failure.get(),
-                    c.totalRtNanos.get(), c.maxRtNanos.get()));
+                    c.totalRtNanos.get(), c.maxRtNanos.get(), copyRejections(c), c.degraded.get()));
         }
         Collections.sort(stats, (a, b) -> a.key().compareTo(b.key()));
         return Collections.unmodifiableList(stats);
+    }
+
+    /** 拒绝计数的防御性拷贝（隔离后续 mutation） */
+    private static Map<String, Long> copyRejections(Counters c) {
+        Map<String, Long> copy = new LinkedHashMap<String, Long>();
+        for (Map.Entry<String, AtomicLong> e : c.rejections.entrySet()) {
+            copy.put(e.getKey(), e.getValue().get());
+        }
+        return Collections.unmodifiableMap(copy);
     }
 
     /** 清空全部计数（测试与运维重置用） */
@@ -67,14 +88,19 @@ public final class RpcMetrics {
         private final long failure;
         private final long totalRtNanos;
         private final long maxRtNanos;
+        private final Map<String, Long> rejections;
+        private final long degraded;
 
-        Stat(String key, long total, long success, long failure, long totalRtNanos, long maxRtNanos) {
+        Stat(String key, long total, long success, long failure, long totalRtNanos, long maxRtNanos,
+             Map<String, Long> rejections, long degraded) {
             this.key = key;
             this.total = total;
             this.success = success;
             this.failure = failure;
             this.totalRtNanos = totalRtNanos;
             this.maxRtNanos = maxRtNanos;
+            this.rejections = rejections;
+            this.degraded = degraded;
         }
 
         public String key() {
@@ -101,6 +127,16 @@ public final class RpcMetrics {
             return maxRtNanos;
         }
 
+        /** 治理拒绝计数（按原因分列，不可变） */
+        public Map<String, Long> rejections() {
+            return rejections;
+        }
+
+        /** 降级兜底触发次数 */
+        public long degraded() {
+            return degraded;
+        }
+
         public long avgRtNanos() {
             return total == 0 ? 0L : totalRtNanos / total;
         }
@@ -118,5 +154,7 @@ public final class RpcMetrics {
         final AtomicLong failure = new AtomicLong();
         final AtomicLong totalRtNanos = new AtomicLong();
         final AtomicLong maxRtNanos = new AtomicLong();
+        final ConcurrentHashMap<String, AtomicLong> rejections = new ConcurrentHashMap<String, AtomicLong>();
+        final AtomicLong degraded = new AtomicLong();
     }
 }

@@ -44,7 +44,8 @@ public class RpcMetricsTest {
         assertEquals("a#m", stats.get(0).key());
         assertEquals("b#m", stats.get(1).key());
         try {
-            stats.add(new RpcMetrics.Stat("x#y", 1, 1, 0, 1, 1));
+            stats.add(new RpcMetrics.Stat("x#y", 1, 1, 0, 1, 1,
+                    java.util.Collections.emptyMap(), 0));
             org.junit.Assert.fail("snapshot must be immutable");
         } catch (UnsupportedOperationException expected) {
             // ok
