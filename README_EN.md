@@ -92,7 +92,7 @@ git checkout 1.0.0
 git checkout 1.2.0
 
 # Check out the completed 2.x microkernel (pre-governance: weighted warmup / async / generic / metrics)
-git checkout 3.0.0
+git checkout 2.2.0
 
 # Switch back to the 3.0 governance-loop architecture
 git checkout master

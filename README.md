@@ -92,7 +92,7 @@ git checkout 1.0.0
 git checkout 1.2.0
 
 # 检出 2.x 微内核完成形态（治理闭环之前：权重预热/异步/泛化/指标齐备）
-git checkout 3.0.0
+git checkout 2.2.0
 
 # 切回 3.0 治理闭环架构主分支
 git checkout master
