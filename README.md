@@ -2,7 +2,7 @@
   <strong>中文</strong> | <a href="README_EN.md">English</a>
 </div>
 
-# Small-RPC 2.0
+# Small-RPC 3.0
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Maven Central](https://img.shields.io/maven-central/v/io.github.upowerman/small-rpc-spring-boot-starter.svg)](https://central.sonatype.com/artifact/io.github.upowerman/small-rpc-spring-boot-starter)
@@ -14,13 +14,13 @@
 
 **Small-RPC** 是一款专为深入理解分布式 RPC 内核原理而设计的高性能、轻量级、高度可扩展的 Java RPC 框架。
 
-在 2.0 架构中，框架完成了全面的模块化重构与现代微服务治理升级：
-- **微内核架构**：核心抽象与网络传输彻底解耦，核心层 `rpc-core` 达成对网络协议与序列化的零依赖；
-- **自研工业级 SPI**：支持默认实现绑定、依赖注入（内置环检测）、运行时自适应动态分发；
-- **事件驱动注册中心**：彻底退役 1.x 同步拉取模型，重构为 `Registry` 订阅-推送模型，配合 `CachingServiceDirectory` 本地快照缓存实现无锁极速读取与**注册中心故障无损降级**；
-- **全套生态扩展**：开箱即用支持本地直连、Apache ZooKeeper（Curator 5.6 临时节点 + 真实推送）及 Redis（Jedis 4.4 Set 注册表 + 轮询差量比对推送）；
-- **优雅停机与容错**：Failover 集群重试、全链路 Trace 上下文、Spring Boot 优雅下线与自动注销；
-- **消费端治理闭环（3.0）**：熔断（错误率/慢调用双条件三态状态机）、客户端限流（令牌桶+并发信号量）、降级 Fallback、在途上限快速失败——全部 opt-in，默认关闭。
+3.0 延续「透视 RPC 内核」的路线，在 2.x 微内核基座之上补齐了消费端容错治理的最后一块拼图：
+- **消费端治理闭环（3.0 新增）**：熔断（错误率/慢调用双条件三态状态机）、客户端限流（令牌桶+并发信号量）、降级 Fallback、在途上限快速失败——全部 opt-in，默认关闭；
+- **微内核架构**（2.x 基座）：核心抽象与网络传输彻底解耦，核心层 `rpc-core` 达成对网络协议与序列化的零依赖；
+- **自研工业级 SPI**（2.x 基座）：支持默认实现绑定、依赖注入（内置环检测）、运行时自适应动态分发；
+- **事件驱动注册中心**（2.x 基座）：彻底退役 1.x 同步拉取模型，重构为 `Registry` 订阅-推送模型，配合 `CachingServiceDirectory` 本地快照缓存实现无锁极速读取与**注册中心故障无损降级**；
+- **全套生态扩展**（2.x 基座）：开箱即用支持本地直连、Apache ZooKeeper（Curator 5.6 临时节点 + 真实推送）及 Redis（Jedis 4.4 Set 注册表 + 轮询差量比对推送）；
+- **异步与容错基座**（2.x 基座）：Failover 集群重试、超时预算、`CompletableFuture` 异步调用、权重负载均衡与实例预热、全链路 Trace 上下文、Spring Boot 优雅下线与自动注销。
 
 > ⚠️ **学习与研究定位**：本项目专注于核心机制的极致清晰呈现与工程规范设计，适合深入学习分布式网络编程、RPC 通信协议与服务治理机制。
 
@@ -56,7 +56,7 @@ Small-RPC 诞生于 **2019 年 10 月**（首个 Commit 于 `2019-10-09`）。
 
 ### 4. 1.0 vs 2.0 核心能力全景对比
 
-| 对比维度 | 1.0 原型阶段 (2019) | 2.0 微内核现代架构 (当前版本) |
+| 对比维度 | 1.0 原型阶段 (2019) | 2.x 微内核架构 |
 |---|---|---|
 | **定位与目标** | 极简学习原型，打通 RPC 通信闭环 | 高性能微内核架构，兼具学习透视与生产级治理规范 |
 | **工程模块化** | 单体 `small-rpc-core`（依赖混杂） | 8 大职责单一子模块，`rpc-core` 微内核仅依赖 `slf4j-api`（零第三方协议与网络依赖） |
@@ -67,9 +67,22 @@ Small-RPC 诞生于 **2019 年 10 月**（首个 Commit 于 `2019-10-09`）。
 | **集群与容错** | 仅单点调用或简单随机 | Failover 集群容错重试、SPI 动态负载均衡（Random / RoundRobin）、全链路 Trace 追踪 |
 | **Spring 生态** | 手动定义 Factory `@Bean` 与参数 | `small-rpc-spring-boot-starter` 全自动装配，强类型 YAML 配置提示与校验 |
 
-### 5. 1.0 历史源码检出指引
+### 5. 3.0：消费端治理闭环（Why 3.0）
 
-为了完整体验从「1.0 极简原型」到「2.0 工业级微内核」的架构演进历程，推荐读者通过历史 Git Tag 检出代码进行对照学习：
+2.0 重构收尾时，设计文档为容错治理留下了明确伏笔：`FailoverClusterInvoker` 的状态码模型按「熔断决策依据」设计，源码注释写着「熔断留给 3.0——状态码模型已为其预留决策依据」。**3.0 的主题就是兑现这个承诺**——把 2.x 已铺好的容错基座（Failover 重试、超时预算、权重预热、服务端 CallerRuns 背压）补全为完整的消费端治理闭环：
+
+| 对比维度 | 2.x 微内核基座 | 3.0 治理闭环（当前版本） |
+|---|---|---|
+| **故障隔离** | Failover 换实例重试，但持续故障下重试放大流量 | **熔断器**：滑动窗口统计错误率/慢调用率，超阈值 OPEN 快速失败，半开探测自愈（Hystrix/Sentinel 状态机 + Resilience4j 双条件） |
+| **流量防护** | 服务端 CallerRuns 背压（入压侧） | **客户端限流**：令牌桶限速 + 并发信号量（出压侧）；**在途上限** CLIENT_BUSY 快速失败，构成全链路背压闭环 |
+| **失败善后** | 失败以 RpcException 直抛业务方 | **降级 Fallback**：`@RpcReference(fallback=...)` 兜底（Dubbo Mock 思想） |
+| **可观测性** | 调用计数与 RT（`service#method`） | 新增按原因归因的拒绝计数（circuit-open / rate-limit / concurrent-limit / client-busy）与降级计数 |
+
+治理三件全部以 Filter 形式挂载于消费端链（`Trace → Metrics → Fallback → RateLimit → CircuitBreaker → FailoverCluster`），与新 SPI 扩展点（`CircuitBreaker` / `RateLimiter`）一同延续「每个机制可单独阅读、单独 Debug、单独关掉」的教学立场；拒绝状态（`CIRCUIT_OPEN` / `RATE_LIMITED` / `CLIENT_BUSY`）延续 2.x「本地状态码」原则——只在消费端结算，绝不上网络线。
+
+### 6. 历史源码检出指引
+
+为了完整体验从「1.0 极简原型」到「2.0 工业级微内核」再到「3.0 治理闭环」的架构演进历程，推荐读者通过历史 Git Tag 检出代码进行对照学习：
 
 ```bash
 # 检出 1.0 初始学习原型（感受手写 RPC 的第一行代码）
@@ -78,7 +91,10 @@ git checkout 1.0.0
 # 检出 1.x 演进版（包含 Redis / ZooKeeper 早期探索）
 git checkout 1.2.0
 
-# 切回 2.0 最新微内核架构主分支
+# 检出 2.x 微内核完成形态（治理闭环之前：权重预热/异步/泛化/指标齐备）
+git checkout 2.2.0
+
+# 切回 3.0 治理闭环架构主分支
 git checkout master
 ```
 
@@ -90,8 +106,8 @@ git checkout master
 
 | 模块名 | 核心职责 | 核心依赖 |
 |---|---|---|
-| **`rpc-core`** | 微内核抽象：SPI 机制、Invocation、Invoker、Filter 链路、LoadBalancer、Registry 抽象、CachingServiceDirectory 缓存降级 | 仅 `slf4j-api`（零第三方协议与传输依赖） |
-| **`rpc-transport-netty`** | 自研二进制协议帧（Magic `0x5352`）编解码、Netty 4 通信引擎、SerializerRegistry、Hessian 序列化、RpcServer | Netty 4.1, Hessian 4.0 |
+| **`rpc-core`** | 微内核抽象：SPI 机制、Invocation、Invoker、Filter 链路、LoadBalancer、Registry 抽象、CachingServiceDirectory 缓存降级、治理抽象（CircuitBreaker/RateLimiter SPI、滑动窗口、Fallback/限流/熔断 Filter） | 仅 `slf4j-api`（零第三方协议与传输依赖） |
+| **`rpc-transport-netty`** | 自研二进制协议帧（Magic `0x5352`）编解码、Netty 4 通信引擎、SerializerRegistry、Hessian 序列化、RpcServer、客户端在途上限（PendingRequests） | Netty 4.1, Hessian 4.0 |
 | **`rpc-registry-local`** | 本地直连注册中心：支持静态配置与单进程内存服务注册，用于本地开发与单机测试 | `rpc-core` |
 | **`rpc-registry-zookeeper`** | ZooKeeper 注册中心：EPHEMERAL 临时实例节点、PathChildrenCache 实时事件推送、自动断网重连 | Apache Curator 5.6, ZooKeeper 3.7+ |
 | **`rpc-registry-redis`** | Redis 注册中心：Set 集合注册表、定时差量比对推送、线程安全调度管理 | Jedis 4.4 |
@@ -124,6 +140,8 @@ git checkout master
 | `LoadBalancer` | `io.github.upowerman.core.loadbalance.LoadBalancer` | `random`, `roundrobin`, `weightedrandom` | `random` |
 | `Serializer` | `io.github.upowerman.core.serialize.Serializer` | `hessian`（typeId=1）、`json`（typeId=2，Jackson） | `hessian` |
 | `Filter` | `io.github.upowerman.core.filter.Filter` | `trace`、`metrics`（内置进消费端链） | — |
+| `CircuitBreaker` | `io.github.upowerman.core.governance.CircuitBreaker` | `default`（滑动窗口 + 三态状态机） | `default` |
+| `RateLimiter` | `io.github.upowerman.core.governance.RateLimiter` | `tokenbucket`（令牌桶，容量=qps） | `tokenbucket` |
 
 ### 权重负载均衡与预热（weightedrandom）
 
@@ -148,11 +166,11 @@ Object result = genericService.$invoke(
         new Object[]{"world"});            // 参数值
 ```
 
-> 2.x 边界：参数类型在消费端 classpath 解析（`Class.forName`），真·零依赖泛化留给 3.0 协议演进。
+> 当前边界：参数类型在消费端 classpath 解析（`Class.forName`）；真·零依赖泛化（参数类型按描述符反射构造）仍属协议层演进方向，未包含在 3.0 治理主题内。
 
 ### 调用指标
 
-消费端链内置 `MetricsFilter`，按 `service#method` 累计 总数 / 成功 / 失败 / 累计 RT / 最大 RT，进程级单例 `RpcMetrics.getInstance().snapshot()` 读取单调累计快照（差值/时间窗即得 QPS），对接 Micrometer 等外部体系由使用方基于快照自行桥接。
+消费端链内置 `MetricsFilter`，按 `service#method` 累计 总数 / 成功 / 失败 / 累计 RT / 最大 RT，进程级单例 `RpcMetrics.getInstance().snapshot()` 读取单调累计快照（差值/时间窗即得 QPS）。3.0 治理扩展：快照新增 `rejections()`（按 circuit-open / rate-limit / concurrent-limit / client-busy 分原因归因）与 `degraded()`（Fallback 救回次数）。对接 Micrometer 等外部体系由使用方基于快照自行桥接。
 
 ---
 
@@ -207,13 +225,13 @@ small-rpc:
         qps: 50
 ```
 
-> 指标归因：`RpcMetrics` 快照新增 `rejections()`（按 circuit-open / rate-limit / concurrent-limit 分列）与 `degraded()`（Fallback 救回次数）。
+> 指标归因：`RpcMetrics` 快照的 `rejections()` 按 circuit-open / rate-limit / concurrent-limit / client-busy 四种原因分列，`degraded()` 为 Fallback 救回次数（见「调用指标」节）。
 
 ---
 
 ## 🚀 三种服务消费方式
 
-Small-RPC 2.0 提供了三种灵活的服务消费模型，覆盖从本地极速调试到生产集群治理的全部场景：
+Small-RPC 提供了三种灵活的服务消费模型，覆盖从本地极速调试到生产集群治理的全部场景：
 
 ### 方式 1：Local 默认配置直连
 适合本地单机联调，客户端直接配置目标 Provider 地址（支持 IDE 属性智能补全）：
@@ -387,7 +405,7 @@ public class HelloController {
 
 ---
 
-### 场景 B：注册中心停机无损降级验证（Spec §3 核心承诺）
+### 场景 B：注册中心停机无损降级验证（目录缓存降级核心承诺）
 
 1. 在上述 ZooKeeper 集群运行中，消费端已经建立订阅；
 2. **完全停止 ZooKeeper 服务**：
@@ -417,7 +435,7 @@ public class HelloController {
 3. 发起调用观察负载均衡；
 4. 优雅关闭实例 1（`kill <实例1PID>`），Provider 自动触发注销（SREM），Redis 轮询任务比对后在 3~5 秒内自动更新客户端缓存，后续调用平滑切换至 7082 存活实例。
 5. **被动退出也能摘除**：Redis 用「存活租约键」（`{prefix}:registry-heartbeat:{service}:{address}`）判定实例存活——Provider 周期性续期（`heartbeat-ms`），Consumer 轮询时剔除租约已过期（超过 `heartbeat-stale-ms` 未续期）的实例。因此 **`kill -9` / OOM / 容器驱逐** 这类无法执行优雅注销的被动退出，也会在租约过期后的下一个轮询周期被自动摘除，不会永久占坑。
-   > 升级注意：存活判定依赖租约键，只有 2.0 的 Provider 会写租约。若注册表混入**旧版本 Provider 或运维手工 `SADD` 的成员**（无租约键），Consumer 会将其视为 stale 立即剔除（2.0 为首发版本，仅影响混合部署/手工造数场景）。
+   > 升级注意：存活判定依赖租约键，只有 2.x 及以上的 Provider 会写租约。若注册表混入**旧版本 Provider 或运维手工 `SADD` 的成员**（无租约键），Consumer 会将其视为 stale 立即剔除（自 2.0 首发引入，仅影响混合部署/手工造数场景）。
 
 ---
 
@@ -454,7 +472,7 @@ public class HelloController {
    ```bash
    for i in {1..120}; do curl -s "http://127.0.0.1:8091/rpc2/protected-hello?name=slow-$i" & done; wait
    ```
-3. **指标归因**：消费端日志或运维端点读取 `RpcMetrics.snapshot()`，`rejections()` 按原因（circuit-open / rate-limit / concurrent-limit）分列，`degraded()` 为兜底触发次数。
+3. **指标归因**：消费端日志或运维端点读取 `RpcMetrics.snapshot()`，`rejections()` 按原因（circuit-open / rate-limit / concurrent-limit / client-busy）分列，`degraded()` 为兜底触发次数。
 
 ---
 
@@ -508,14 +526,18 @@ public class HelloController {
 
 ## 🔄 架构与调用全链路时序图
 
-### 2.0 端到端调用时序
+### 3.0 端到端调用时序（含治理链）
 
 ```mermaid
 sequenceDiagram
     autonumber
     participant App as 业务调用方
     participant Proxy as JDK 动态代理
-    participant Filter as TraceFilter
+    participant Trace as TraceFilter
+    participant Metrics as MetricsFilter
+    participant FB as FallbackFilter
+    participant RL as RateLimitFilter
+    participant CB as CircuitBreakerFilter
     participant Cluster as FailoverClusterInvoker
     participant Dir as CachingServiceDirectory
     participant LB as LoadBalancer (SPI)
@@ -525,8 +547,13 @@ sequenceDiagram
     participant Svc as @RpcService Bean
 
     App->>Proxy: helloService.hello("p3")
-    Proxy->>Filter: invoke(Invocation)
-    Filter->>Cluster: invoke(Invocation)
+    Proxy->>Trace: invoke(Invocation)
+    Trace->>Metrics: invoke(Invocation)
+    Metrics->>FB: invoke(Invocation)
+    FB->>RL: invoke(Invocation)
+    RL->>CB: invoke(Invocation)
+    CB->>CB: tryPass？OPEN 时立即以 CIRCUIT_OPEN 结算
+    CB->>Cluster: invoke(Invocation)
     Cluster->>Dir: list(Invocation) [从本地只读快照取实例]
     Dir-->>Cluster: List<ServiceInstance>
     Cluster->>LB: select(invokers, invocation)
@@ -539,8 +566,12 @@ sequenceDiagram
     Invoker-->>Server: Result (Status.SUCCESS)
     Server-->>Client: 回写响应 Frame
     Client-->>Cluster: CompletableFuture.completedFuture(Result)
-    Cluster-->>Filter: Result
-    Filter-->>Proxy: Result.value()
+    Cluster-->>CB: Result（回填熔断统计，含重试终态）
+    CB-->>RL: Result（释放并发许可）
+    RL-->>FB: Result（非 SUCCESS 时调用 fallback 兜底）
+    FB-->>Metrics: Result（降级时记 degraded）
+    Metrics-->>Trace: Result（计数/计时）
+    Trace-->>Proxy: Result.value()
     Proxy-->>App: 返回 HelloDTO
 ```
 
