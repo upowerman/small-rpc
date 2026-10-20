@@ -290,6 +290,47 @@
                             </execution>
                         </executions>
                     </plugin>
+                    <!--
+                        清理 central-staging 里的 Maven 本地仓库元数据。
+
+                        某些 Maven 版本在向 staging 仓库 install 时，会顺带写入
+                        _remote.repositories 与 maven-metadata-local.xml。后者落在
+                        <group>/<artifact>/ 这一层（没有版本目录、也没有 .pom），
+                        Central 的发布校验会判定：
+                          "Bundle has content that does NOT have a .pom file"
+                        并拒收整个 bundle。
+
+                        绑定到 install 阶段：多模块按顺序构建，最后一个模块的 install
+                        一定在它自己的 deploy（打包+上传）之前执行，因此这里是
+                        清除干净后才组包的最后时机。
+                        用 ${maven.multiModuleProjectDirectory} 指向根目录的 staging。
+                    -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-clean-plugin</artifactId>
+                        <version>3.3.2</version>
+                        <executions>
+                            <execution>
+                                <id>clean-central-staging-metadata</id>
+                                <phase>install</phase>
+                                <goals>
+                                    <goal>clean</goal>
+                                </goals>
+                                <configuration>
+                                    <excludeDefaultDirectories>true</excludeDefaultDirectories>
+                                    <filesets>
+                                        <fileset>
+                                            <directory>${maven.multiModuleProjectDirectory}/target/central-staging</directory>
+                                            <includes>
+                                                <include>**/_remote.repositories*</include>
+                                                <include>**/maven-metadata-local.xml*</include>
+                                            </includes>
+                                        </fileset>
+                                    </filesets>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
                 </plugins>
             </build>
         </profile>
