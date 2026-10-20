@@ -62,6 +62,10 @@ public class Rpc2Properties {
         private long timeoutMs = 3000;
         /** 全局默认失败重试次数（额外尝试数，0 = 不重试）；@RpcReference.retries 未设置（-1）时生效 */
         private int retries = 1;
+        /** 客户端在途请求上限；0 = 不限。超限以 CLIENT_BUSY 快速失败（3.0 治理背压） */
+        private int maxInFlight = 0;
+        /** 消费端治理配置（3.0：默认整体关闭，opt-in） */
+        private Governance governance = new Governance();
 
         public boolean isEnabled() { return enabled; }
         public void setEnabled(boolean enabled) { this.enabled = enabled; }
@@ -69,6 +73,73 @@ public class Rpc2Properties {
         public void setTimeoutMs(long timeoutMs) { this.timeoutMs = timeoutMs; }
         public int getRetries() { return retries; }
         public void setRetries(int retries) { this.retries = retries; }
+        public int getMaxInFlight() { return maxInFlight; }
+        public void setMaxInFlight(int maxInFlight) { this.maxInFlight = maxInFlight; }
+        public Governance getGovernance() { return governance; }
+        public void setGovernance(Governance governance) { this.governance = governance; }
+    }
+
+    /** 3.0 消费端治理：熔断 + 限流，默认全部关闭 */
+    public static class Governance {
+        private CircuitBreaker circuitBreaker = new CircuitBreaker();
+        private RateLimit rateLimit = new RateLimit();
+
+        public CircuitBreaker getCircuitBreaker() { return circuitBreaker; }
+        public void setCircuitBreaker(CircuitBreaker circuitBreaker) { this.circuitBreaker = circuitBreaker; }
+        public RateLimit getRateLimit() { return rateLimit; }
+        public void setRateLimit(RateLimit rateLimit) { this.rateLimit = rateLimit; }
+
+        public static class CircuitBreaker {
+            /** 熔断开关（opt-in：false = 不装配熔断 Filter） */
+            private boolean enabled = false;
+            /** 错误率跳闸阈值 [0,1]；0 = 该条件停用 */
+            private double errorRateThreshold = 0.5;
+            /** 慢调用率跳闸阈值 [0,1]；0 = 该条件停用 */
+            private double slowCallRateThreshold = 0.5;
+            /** 慢调用阈值毫秒；0 = 按调用超时预算 80% 推导（预算也不可得则该条件停用） */
+            private long slowRtMs = 0;
+            /** 窗口内最少样本数（防冷启动误跳） */
+            private int minCalls = 20;
+            /** 统计滑动窗口毫秒 */
+            private long windowMs = 10000;
+            /** 熔断打开持续时间毫秒 */
+            private long openMs = 10000;
+            /** 半开探测名额 */
+            private int halfOpenProbes = 1;
+
+            public boolean isEnabled() { return enabled; }
+            public void setEnabled(boolean enabled) { this.enabled = enabled; }
+            public double getErrorRateThreshold() { return errorRateThreshold; }
+            public void setErrorRateThreshold(double errorRateThreshold) { this.errorRateThreshold = errorRateThreshold; }
+            public double getSlowCallRateThreshold() { return slowCallRateThreshold; }
+            public void setSlowCallRateThreshold(double slowCallRateThreshold) { this.slowCallRateThreshold = slowCallRateThreshold; }
+            public long getSlowRtMs() { return slowRtMs; }
+            public void setSlowRtMs(long slowRtMs) { this.slowRtMs = slowRtMs; }
+            public int getMinCalls() { return minCalls; }
+            public void setMinCalls(int minCalls) { this.minCalls = minCalls; }
+            public long getWindowMs() { return windowMs; }
+            public void setWindowMs(long windowMs) { this.windowMs = windowMs; }
+            public long getOpenMs() { return openMs; }
+            public void setOpenMs(long openMs) { this.openMs = openMs; }
+            public int getHalfOpenProbes() { return halfOpenProbes; }
+            public void setHalfOpenProbes(int halfOpenProbes) { this.halfOpenProbes = halfOpenProbes; }
+        }
+
+        public static class RateLimit {
+            /** 限流开关（opt-in） */
+            private boolean enabled = false;
+            /** 每资源令牌桶速率（每秒）；0 = 不限速 */
+            private int qps = 0;
+            /** 每资源并发上限（信号量）；0 = 不限并发 */
+            private int maxConcurrent = 0;
+
+            public boolean isEnabled() { return enabled; }
+            public void setEnabled(boolean enabled) { this.enabled = enabled; }
+            public int getQps() { return qps; }
+            public void setQps(int qps) { this.qps = qps; }
+            public int getMaxConcurrent() { return maxConcurrent; }
+            public void setMaxConcurrent(int maxConcurrent) { this.maxConcurrent = maxConcurrent; }
+        }
     }
 
     public static class Registry {

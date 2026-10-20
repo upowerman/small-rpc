@@ -63,6 +63,12 @@ public class ReferenceBeanPostProcessor extends InstantiationAwareBeanPostProces
     private final int defaultRetries;
     /** fallback 解析用的容器（可为 null：无容器环境/单测直连，fallback 走反射实例化） */
     private final BeanFactory beanFactory;
+    /** 熔断规则；null = 关闭（不装配熔断 Filter） */
+    private final io.github.upowerman.core.governance.CircuitBreakerRule circuitBreakerRule;
+    /** 限速规则；null = 关闭速率闸门 */
+    private final io.github.upowerman.core.governance.RateLimitRule rateLimitRule;
+    /** 每资源并发上限；<= 0 = 关闭并发闸门 */
+    private final int maxConcurrent;
 
     public ReferenceBeanPostProcessor(Transport transport, Registry registry,
                                       String defaultLoadBalance) {
@@ -78,11 +84,24 @@ public class ReferenceBeanPostProcessor extends InstantiationAwareBeanPostProces
     public ReferenceBeanPostProcessor(Transport transport, Registry registry,
                                       String defaultLoadBalance, long defaultTimeoutMillis,
                                       int defaultRetries, BeanFactory beanFactory) {
+        this(transport, registry, defaultLoadBalance, defaultTimeoutMillis, defaultRetries,
+                null, null, 0, beanFactory);
+    }
+
+    public ReferenceBeanPostProcessor(Transport transport, Registry registry,
+                                      String defaultLoadBalance, long defaultTimeoutMillis,
+                                      int defaultRetries,
+                                      io.github.upowerman.core.governance.CircuitBreakerRule circuitBreakerRule,
+                                      io.github.upowerman.core.governance.RateLimitRule rateLimitRule,
+                                      int maxConcurrent, BeanFactory beanFactory) {
         this.transport = transport;
         this.registry = registry;
         this.defaultLoadBalance = defaultLoadBalance;
         this.defaultTimeoutMillis = defaultTimeoutMillis;
         this.defaultRetries = defaultRetries;
+        this.circuitBreakerRule = circuitBreakerRule;
+        this.rateLimitRule = rateLimitRule;
+        this.maxConcurrent = maxConcurrent;
         this.beanFactory = beanFactory;
     }
 
@@ -125,12 +144,23 @@ public class ReferenceBeanPostProcessor extends InstantiationAwareBeanPostProces
                 directory, loadBalancer, remoteInvoker, retries, timeoutMillis);
         // 链序：Trace（traceId 先落 attachments）→ Metrics（计时含 Cluster 重试全程）
         // → Fallback（包住全部下游失败，治理拒绝也由它兜底）
+        // → RateLimit（先守自身水位）→ CircuitBreaker（再看下游健康，紧贴 Cluster）
         List<Filter> filters = new ArrayList<Filter>();
         filters.add(new TraceFilter());
         filters.add(new MetricsFilter());
         Object fallbackInstance = resolveFallback(iface, reference.fallback(), beanFactory);
         if (fallbackInstance != null) {
             filters.add(new FallbackFilter(fallbackInstance));
+        }
+        if (rateLimitRule != null || maxConcurrent > 0) {
+            io.github.upowerman.core.governance.RateLimiter limiter = rateLimitRule == null ? null
+                    : SpiLoader.of(io.github.upowerman.core.governance.RateLimiter.class).getDefaultExtension();
+            filters.add(new io.github.upowerman.core.filter.RateLimitFilter(limiter, rateLimitRule, maxConcurrent));
+        }
+        if (circuitBreakerRule != null) {
+            io.github.upowerman.core.governance.CircuitBreaker breaker =
+                    SpiLoader.of(io.github.upowerman.core.governance.CircuitBreaker.class).getDefaultExtension();
+            filters.add(new io.github.upowerman.core.filter.CircuitBreakerFilter(breaker, circuitBreakerRule, timeoutMillis));
         }
         return new RpcProxyFactory(
                 iface, filters, cluster,

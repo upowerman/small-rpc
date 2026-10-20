@@ -34,7 +34,9 @@ public class Rpc2ConsumerAutoConfiguration {
         Serializer serializer = (serializerName == null || serializerName.trim().isEmpty())
                 ? SpiLoader.of(Serializer.class).getDefaultExtension()
                 : SpiLoader.of(Serializer.class).getExtension(serializerName.trim());
-        return new NettyTransport(serializer);
+        // small-rpc.consumer.max-in-flight：客户端在途背压上限（0 = 不限）
+        return new NettyTransport(serializer, NettyTransport.DEFAULT_REQUEST_TIMEOUT_MILLIS,
+                properties.getConsumer().getMaxInFlight());
     }
 
     /**
@@ -55,9 +57,25 @@ public class Rpc2ConsumerAutoConfiguration {
                                                                  org.springframework.beans.factory.BeanFactory beanFactory) {
         // small-rpc.loadbalance 与 small-rpc.consumer.timeout-ms/retries 在此进入链路：
         // 注解未指定时作为缺省负载均衡扩展名 / 缺省超时与重试；
-        // BeanFactory 供 @RpcReference.fallback 优先解析容器 bean
+        // BeanFactory 供 @RpcReference.fallback 优先解析容器 bean；
+        // 治理规则在此构建——非法配置启动即失败（大声失败原则）
+        Rpc2Properties.Consumer consumer = properties.getConsumer();
+        Rpc2Properties.Governance governance = consumer.getGovernance();
+        io.github.upowerman.core.governance.CircuitBreakerRule circuitBreakerRule = null;
+        Rpc2Properties.Governance.CircuitBreaker cb = governance.getCircuitBreaker();
+        if (cb.isEnabled()) {
+            circuitBreakerRule = new io.github.upowerman.core.governance.CircuitBreakerRule(
+                    cb.getErrorRateThreshold(), cb.getSlowCallRateThreshold(), cb.getSlowRtMs(),
+                    cb.getMinCalls(), cb.getWindowMs(), cb.getOpenMs(), cb.getHalfOpenProbes());
+        }
+        io.github.upowerman.core.governance.RateLimitRule rateLimitRule = null;
+        Rpc2Properties.Governance.RateLimit rl = governance.getRateLimit();
+        if (rl.isEnabled() && rl.getQps() > 0) {
+            rateLimitRule = new io.github.upowerman.core.governance.RateLimitRule(rl.getQps());
+        }
         return new ReferenceBeanPostProcessor(nettyTransport, rpc2Registry, properties.getLoadBalance(),
-                properties.getConsumer().getTimeoutMs(), properties.getConsumer().getRetries(), beanFactory);
+                consumer.getTimeoutMs(), consumer.getRetries(),
+                circuitBreakerRule, rateLimitRule, rl.getMaxConcurrent(), beanFactory);
     }
 
     /** C7：泛化调用门面——网关/运维场景不引入业务接口 jar 直接按服务名+方法名调用 */
