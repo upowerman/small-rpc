@@ -102,6 +102,24 @@ public class ServerHandlerTest {
         assertEquals("echo:world", ((EchoDTO) bodyOf(resp).getValue()).getMsg());
     }
 
+    /** A2：异步实现方法在服务端解包，响应携带最终值而非 future 对象 */
+    @Test
+    public void asyncMethodRespondsWithUnwrappedValue() {
+        RpcRequestBody body = new RpcRequestBody();
+        body.setServiceName(EchoService.class.getName());
+        body.setMethodName("echoAsync");
+        body.setParameterTypes(new String[]{EchoDTO.class.getName()});
+        body.setArguments(new Object[]{new EchoDTO("world")});
+        writeInbound(Frame.request(HESSIAN.typeId(), 101L, HESSIAN.serialize(body)));
+
+        Frame resp = readResponse();
+        assertNotNull(resp);
+        assertEquals("异步响应应 SUCCESS，实际 status=" + resp.status()
+                + " bodyLen=" + (resp.body() == null ? -1 : resp.body().length),
+                ProtocolStatus.SUCCESS, resp.status());
+        assertEquals("async:world", ((EchoDTO) bodyOf(resp).getValue()).getMsg());
+    }
+
     @Test
     public void heartbeatIsEchoedBack() {
         writeInbound(Frame.heartbeat(55L));

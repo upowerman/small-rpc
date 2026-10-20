@@ -156,9 +156,10 @@ public class FailoverClusterInvoker implements Invoker {
     }
 
     private long resolveTimeout(Invocation invocation) {
+        // Number 而非 Long：attachments 若经 JSON 等无类型序列化往返，3000 可能变 Integer
         Object timeout = invocation.attachments().get(RpcConstants.ATTACH_TIMEOUT);
-        if (timeout instanceof Long && ((Long) timeout) > 0) {
-            return (Long) timeout;
+        if (timeout instanceof Number && ((Number) timeout).longValue() > 0) {
+            return ((Number) timeout).longValue();
         }
         return defaultTimeoutMillis;
     }

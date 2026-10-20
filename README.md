@@ -120,9 +120,38 @@ git checkout master
 | 接口 | SPI 文件名 | 内置实现名 | 默认值 |
 |---|---|---|---|
 | `Registry` | `io.github.upowerman.core.registry.Registry` | `local`, `zookeeper`, `redis` | `local` |
-| `LoadBalancer` | `io.github.upowerman.core.loadbalance.LoadBalancer` | `random`, `roundrobin` | `random` |
-| `Serializer` | `io.github.upowerman.core.serialize.Serializer` | `hessian`（typeId=1） | `hessian` |
-| `Filter` | `io.github.upowerman.core.filter.Filter` | `trace` | — |
+| `LoadBalancer` | `io.github.upowerman.core.loadbalance.LoadBalancer` | `random`, `roundrobin`, `weightedrandom` | `random` |
+| `Serializer` | `io.github.upowerman.core.serialize.Serializer` | `hessian`（typeId=1）、`json`（typeId=2，Jackson） | `hessian` |
+| `Filter` | `io.github.upowerman.core.filter.Filter` | `trace`、`metrics`（内置进消费端链） | — |
+
+### 权重负载均衡与预热（weightedrandom）
+
+实例元数据（weight / startTime / warmup）随注册数据传播：ZooKeeper 写入临时节点 data、Redis 存于并行 meta Hash、Local 内存直存。`weightedrandom` 按有效权重 = `weight × 预热因子` 分流——启动后预热窗口内流量从 0 线性爬坡到满权重；`startTime` 未知（旧格式数据）或未配预热时恒为满权重。全部实例有效权重为 0 时回退均匀随机。旧版本注册数据按等权、已预热处理，前后兼容。
+
+### 异步调用
+
+接口方法签名返回 `CompletableFuture<T>` 即异步调用，无需注解：代理直接透传内部调用链的 future（不在代理层阻塞），服务端自动解包实现方法返回的 future，响应帧携带最终业务值。同一接口可混合同步与异步方法。
+
+### 泛化调用
+
+不引入业务接口 jar，直接以服务名 + 方法名 + 参数类型名发起调用（网关/控制台/脚本场景）。消费端注入 `GenericService` bean：
+
+```java
+@Autowired
+private GenericService genericService;
+
+Object result = genericService.$invoke(
+        "com.example.api.HelloService",   // 服务名（接口全限定名）
+        "hello",                           // 方法名
+        new String[]{"java.lang.String"}, // 参数类型名（支持 int/long 等缩写）
+        new Object[]{"world"});            // 参数值
+```
+
+> 2.x 边界：参数类型在消费端 classpath 解析（`Class.forName`），真·零依赖泛化留给 3.0 协议演进。
+
+### 调用指标
+
+消费端链内置 `MetricsFilter`，按 `service#method` 累计 总数 / 成功 / 失败 / 累计 RT / 最大 RT，进程级单例 `RpcMetrics.getInstance().snapshot()` 读取单调累计快照（差值/时间窗即得 QPS），对接 Micrometer 等外部体系由使用方基于快照自行桥接。
 
 ---
 
@@ -357,7 +386,15 @@ public class HelloController {
 | `small-rpc.provider.enabled` | `true` | Boolean | 是否启用服务提供端（纯消费端应用请务必设为 `false`，防端口占用） |
 | `small-rpc.provider.rpc2-port` | `7081` | Integer | RpcServer Netty 监听端口 |
 | `small-rpc.provider.address` | 自动探测本机 IP | String | 提供端对外注册的地址（`IP:Port`），多网卡或容器端口映射环境下建议显式配置 |
+| `small-rpc.provider.weight` | `1` | Integer | 实例静态权重：`weightedrandom` 负载均衡按权重比例分流量；1 = 等权 |
+| `small-rpc.provider.warmup-ms` | `0` | Long | 预热窗口毫秒：>0 时启动后窗口内流量从 0 线性爬坡到满权重；0 = 关闭预热 |
+| `small-rpc.provider.business-threads` | `8` | Integer | 服务端业务线程池线程数（请求反序列化与反射执行，不占 Netty IO 线程） |
+| `small-rpc.provider.business-queue-capacity` | `0` | Integer | 业务线程池有界队列容量；0 = 无界。>0 时打满后由提交线程执行（CallerRuns 背压），不拒绝请求 |
+| `small-rpc.provider.shutdown-drain-ms` | `10000` | Long | 优雅停机排空上限（毫秒）：停机时先摘注册再等在途请求完成；0 = 不等待直接关闭 |
 | `small-rpc.consumer.enabled` | `true` | Boolean | 是否启用服务消费端 |
+| `small-rpc.consumer.timeout-ms` | `3000` | Long | 全局默认单次调用超时（deadline 预算，含重试）；`@RpcReference.timeout` 未设置时生效 |
+| `small-rpc.consumer.retries` | `1` | Integer | 全局默认失败重试次数（0 = 不重试）；`@RpcReference.retries` 未设置时生效 |
+| `small-rpc.serializer` | `hessian` | String | 消费端序列化 SPI 名：`hessian` / `json`；服务端按帧 codec 自动识别，两端无需对称配置 |
 | `small-rpc.registry.type` | `local` | String | 注册中心 SPI 扩展名：`local` / `zookeeper` / `redis` |
 | `small-rpc.registry.local.direct-address` | `""` | String | Local 直连模式下的目标 Provider 地址（支持 IDE 属性智能补全） |
 | `small-rpc.registry.zookeeper.connect` | `localhost:2181` | String | ZooKeeper 连接串（支持多地址逗号分隔） |
@@ -374,7 +411,7 @@ public class HelloController {
 | `small-rpc.registry.redis.heartbeat-ms` | `1000` | Long | Provider 心跳续期周期（毫秒）；续写实例存活租约键 |
 | `small-rpc.registry.redis.heartbeat-stale-ms` | `5000` | Long | 存活租约键 TTL（毫秒）；Provider 被动退出超过此值未续期即被 Consumer 剔除，须 ≥ heartbeat-ms |
 | `small-rpc.registry.param.*` | - | Map<String, String> | 底层注册中心原始通用参数字典（向下兼容，同名键优先级高于强类型默认值） |
-| `small-rpc.loadbalance` | `random` | String | 全局负载均衡算法 SPI 名：`random`（随机）或 `roundrobin`（轮询） |
+| `small-rpc.loadbalance` | `random` | String | 全局负载均衡算法 SPI 名：`random`（随机）、`roundrobin`（轮询）或 `weightedrandom`（加权随机，配合 `provider.weight` / `provider.warmup-ms`） |
 
 ---
 

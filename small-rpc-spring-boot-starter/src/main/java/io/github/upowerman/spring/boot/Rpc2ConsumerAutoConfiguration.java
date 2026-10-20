@@ -1,5 +1,7 @@
 package io.github.upowerman.spring.boot;
 
+import io.github.upowerman.core.generic.GenericService;
+import io.github.upowerman.core.generic.GenericServiceFactory;
 import io.github.upowerman.core.serialize.Serializer;
 import io.github.upowerman.core.spi.SpiLoader;
 import io.github.upowerman.core.transport.NettyTransport;
@@ -25,8 +27,13 @@ public class Rpc2ConsumerAutoConfiguration {
 
     @Bean(destroyMethod = "shutdown")
     @ConditionalOnMissingBean(NettyTransport.class)
-    public NettyTransport nettyTransport() {
-        Serializer serializer = SpiLoader.of(Serializer.class).getDefaultExtension();
+    public NettyTransport nettyTransport(Rpc2Properties properties) {
+        // small-rpc.serializer 选择消费端序列化扩展；空 = 接口 @Spi 默认（hessian）。
+        // 服务端按帧 codec typeId 自动识别，无需对称配置
+        String serializerName = properties.getSerializer();
+        Serializer serializer = (serializerName == null || serializerName.trim().isEmpty())
+                ? SpiLoader.of(Serializer.class).getDefaultExtension()
+                : SpiLoader.of(Serializer.class).getExtension(serializerName.trim());
         return new NettyTransport(serializer);
     }
 
@@ -45,7 +52,19 @@ public class Rpc2ConsumerAutoConfiguration {
     public ReferenceBeanPostProcessor referenceBeanPostProcessor(NettyTransport nettyTransport,
                                                                  Registry rpc2Registry,
                                                                  Rpc2Properties properties) {
-        // small-rpc.loadbalance 在此进入链路：注解未指定时作为缺省负载均衡扩展名
-        return new ReferenceBeanPostProcessor(nettyTransport, rpc2Registry, properties.getLoadBalance());
+        // small-rpc.loadbalance 与 small-rpc.consumer.timeout-ms/retries 在此进入链路：
+        // 注解未指定时作为缺省负载均衡扩展名 / 缺省超时与重试
+        return new ReferenceBeanPostProcessor(nettyTransport, rpc2Registry, properties.getLoadBalance(),
+                properties.getConsumer().getTimeoutMs(), properties.getConsumer().getRetries());
+    }
+
+    /** C7：泛化调用门面——网关/运维场景不引入业务接口 jar 直接按服务名+方法名调用 */
+    @Bean
+    @ConditionalOnMissingBean(GenericService.class)
+    public GenericService smallRpcGenericService(NettyTransport nettyTransport,
+                                                 Registry rpc2Registry,
+                                                 Rpc2Properties properties) {
+        return GenericServiceFactory.create(nettyTransport, rpc2Registry, properties.getLoadBalance(),
+                properties.getConsumer().getRetries(), properties.getConsumer().getTimeoutMs());
     }
 }

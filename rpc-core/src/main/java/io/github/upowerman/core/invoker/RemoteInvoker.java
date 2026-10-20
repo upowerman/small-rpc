@@ -14,6 +14,9 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Consumer 端远程 Invoker：从 attachments 取目标地址，经 Transport 发起调用。
  * 目标地址由 ClusterInvoker 选好实例后写入（每次重试可能不同）。
+ * <p>
+ * {@code interfaceClass} 仅供链路元信息使用，泛化调用（无接口代理）可传 null——
+ * Invocation 自带 serviceName，序列化与寻址不依赖该字段。
  */
 public class RemoteInvoker implements Invoker {
 

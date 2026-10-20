@@ -16,6 +16,7 @@ import io.github.upowerman.core.proxy.RpcProxyFactory;
 import io.github.upowerman.core.result.Result;
 import io.github.upowerman.core.result.Status;
 import io.github.upowerman.core.serialize.HessianSerializer;
+import io.github.upowerman.core.serialize.JsonSerializer;
 import io.github.upowerman.core.serialize.SerializerRegistry;
 import io.github.upowerman.core.server.RpcServer;
 import io.github.upowerman.core.testsupport.EchoDTO;
@@ -37,6 +38,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -144,6 +146,42 @@ public class NettyProtocolEndToEndTest {
         EchoService echo = newProxy(1, 10000L);
         EchoDTO out = echo.echo(new EchoDTO("world"));
         assertEquals("echo:world", out.getMsg());
+    }
+
+    /** A2：异步签名经真实协议帧往返——服务端解包 future、传输携带最终值、代理透传 */
+    @Test
+    public void asyncMethodRoundTripsOverRealNetty() throws Exception {
+        EchoService echo = newProxy(0, 10000L);
+        CompletableFuture<EchoDTO> future = echo.echoAsync(new EchoDTO("world"));
+        EchoDTO out = future.get(10, TimeUnit.SECONDS);
+        assertEquals("async:world", out.getMsg());
+    }
+
+    /** C6：JSON codec 全链路——服务端按帧 typeId 自动识别并与 Hessian 实例共存 */
+    @Test
+    public void jsonCodecEndToEndWithAutoDetectedSerializer() throws Exception {
+        int jsonPort = freePort();
+        SerializerRegistry bothCodecs = SerializerRegistry.fromSpi();
+        RpcServer jsonServer = new RpcServer(jsonPort, bothCodecs);
+        jsonServer.register(EchoService.class.getName(),
+                new ReflectiveInvoker(EchoService.class, new EchoServiceImpl()));
+        jsonServer.start();
+        NettyTransport jsonTransport = new NettyTransport(new JsonSerializer());
+        try {
+            Map<String, Object> attachments = new HashMap<String, Object>();
+            attachments.put(RpcConstants.ATTACH_ADDRESS, "127.0.0.1:" + jsonPort);
+            attachments.put(RpcConstants.ATTACH_TIMEOUT, 10000L);
+            Result result = new RemoteInvoker(jsonTransport, EchoService.class).invoke(
+                    new GenericInvocation(EchoService.class.getName(), "echo",
+                            new Class<?>[]{EchoDTO.class}, new Object[]{new EchoDTO("json")},
+                            attachments)).get(10, TimeUnit.SECONDS);
+
+            assertEquals(Status.SUCCESS, result.status());
+            assertEquals("echo:json", ((EchoDTO) result.value()).getMsg());
+        } finally {
+            jsonTransport.shutdown();
+            jsonServer.shutdown();
+        }
     }
 
     @Test

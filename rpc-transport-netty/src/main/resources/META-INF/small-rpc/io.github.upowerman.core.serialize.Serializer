@@ -1,1 +1,2 @@
 hessian=io.github.upowerman.core.serialize.HessianSerializer
+json=io.github.upowerman.core.serialize.JsonSerializer

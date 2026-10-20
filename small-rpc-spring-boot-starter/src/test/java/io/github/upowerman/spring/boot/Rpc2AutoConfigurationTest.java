@@ -280,6 +280,90 @@ public class Rpc2AutoConfigurationTest {
         }
     }
 
+    @Test
+    public void consumerTimeoutAndRetriesBindWithSaneDefaults() {
+        ConfigurableApplicationContext context = new SpringApplicationBuilder(TestApp.class)
+                .web(WebApplicationType.NONE)
+                .properties("small-rpc.provider.enabled=false")
+                .run();
+        try {
+            Rpc2Properties properties = context.getBean(Rpc2Properties.class);
+            assertEquals("全局超时默认应与历史注解默认一致", 3000L, properties.getConsumer().getTimeoutMs());
+            assertEquals("全局重试默认应与历史硬编码一致", 1, properties.getConsumer().getRetries());
+        } finally {
+            context.close();
+        }
+
+        ConfigurableApplicationContext context2 = new SpringApplicationBuilder(TestApp.class)
+                .web(WebApplicationType.NONE)
+                .properties("small-rpc.provider.enabled=false",
+                        "small-rpc.consumer.timeout-ms=1234",
+                        "small-rpc.consumer.retries=3")
+                .run();
+        try {
+            Rpc2Properties properties2 = context2.getBean(Rpc2Properties.class);
+            assertEquals(1234L, properties2.getConsumer().getTimeoutMs());
+            assertEquals(3, properties2.getConsumer().getRetries());
+        } finally {
+            context2.close();
+        }
+    }
+
+    /** C7：消费端上下文自动装配泛化调用门面 */
+    @Test
+    public void genericServiceBeanIsAutoConfiguredForConsumers() {
+        ConfigurableApplicationContext context = new SpringApplicationBuilder(TestApp.class)
+                .web(WebApplicationType.NONE)
+                .properties("small-rpc.provider.enabled=false",
+                        "small-rpc.registry.type=local")
+                .run();
+        try {
+            io.github.upowerman.core.generic.GenericService generic =
+                    context.getBean(io.github.upowerman.core.generic.GenericService.class);
+            assertNotNull("消费端应自动装配 GenericService bean", generic);
+        } finally {
+            context.close();
+        }
+    }
+
+    /** C6：small-rpc.serializer=json 应让消费端 NettyTransport 使用 JSON 序列化器 */
+    @Test
+    public void configuredSerializerFlowsIntoConsumerTransport() throws Exception {
+        int port = freePort();
+        ConfigurableApplicationContext context = new SpringApplicationBuilder(TestApp.class)
+                .web(WebApplicationType.NONE)
+                .properties(
+                        "small-rpc.provider.rpc2-port=" + port,
+                        "small-rpc.registry.type=local",
+                        "small-rpc.registry.param[DIRECT_ADDRESS]=localhost:" + port,
+                        "small-rpc.serializer=json")
+                .run();
+        try {
+            EchoServiceHolder holder = context.getBean(EchoServiceHolder.class);
+            // provider 与 consumer 在同一上下文：服务端注册表按帧 codec 自动识别 json，
+            // 消费端按配置走 json——端到端调用成功即证明配置真实生效
+            assertEquals("echo:json-codec", holder.get().echo("json-codec"));
+        } finally {
+            context.close();
+        }
+    }
+
+    /** C6：非法序列化名应在装配期大声失败 */
+    @Test
+    public void unknownSerializerFailsLoudly() {
+        try {
+            new SpringApplicationBuilder(TestApp.class)
+                    .web(WebApplicationType.NONE)
+                    .properties("small-rpc.provider.enabled=false",
+                            "small-rpc.serializer=nope")
+                    .run();
+            fail("expected context startup failure");
+        } catch (RuntimeException e) {
+            assertTrue("cause chain 应包含非法序列化名 nope，实际: " + allCauses(e),
+                    allCauses(e).contains("nope"));
+        }
+    }
+
     // ---- 帮助方法 ----
 
     private static int freePort() throws IOException {
