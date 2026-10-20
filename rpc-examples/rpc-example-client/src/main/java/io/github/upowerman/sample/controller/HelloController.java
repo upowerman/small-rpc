@@ -17,6 +17,20 @@ public class HelloController {
     @RpcReference
     private HelloService helloService;
 
+    /**
+     * 3.0 治理演示：带降级兜底的服务引用。
+     * 熔断打开 / 限流 / 在途上限 / 下游失败时返回 fallback 文案而非异常。
+     */
+    public static class HelloFallback implements HelloService {
+        @Override
+        public HelloDTO hello(String name) {
+            return new HelloDTO(name, "degraded: provider unavailable");
+        }
+    }
+
+    @RpcReference(fallback = HelloFallback.class)
+    private HelloService protectedHelloService;
+
     @GetMapping("/hello")
     public HelloDTO hello(String name) {
         return helloService.hello(name);
@@ -25,5 +39,10 @@ public class HelloController {
     @GetMapping("/rpc2/hello")
     public HelloDTO rpc2Hello(String name) {
         return helloService.hello(name);
+    }
+
+    @GetMapping("/rpc2/protected-hello")
+    public HelloDTO protectedHello(String name) {
+        return protectedHelloService.hello(name);
     }
 }

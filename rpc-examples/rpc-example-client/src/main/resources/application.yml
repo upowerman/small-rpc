@@ -12,3 +12,15 @@ small-rpc:
     local:
       direct-address: localhost:7081
   loadbalance: random
+  consumer:
+    # 3.0 消费端治理（默认全部关闭，此处为演示打开）：
+    # 场景 D——熔断打开快速失败与半开自愈；场景 E——限流与在途上限
+    max-in-flight: 100
+    governance:
+      circuit-breaker:
+        enabled: true
+        min-calls: 5
+        open-ms: 5000
+      rate-limit:
+        enabled: true
+        qps: 50

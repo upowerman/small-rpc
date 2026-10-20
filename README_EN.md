@@ -19,7 +19,8 @@ In version 2.0, the framework underwent a comprehensive modular refactoring and 
 - **Self-Developed Industrial SPI**: Supports default implementation binding, field dependency injection (with circular dependency detection), and runtime adaptive dynamic dispatching;
 - **Event-Driven Registry**: Completely retires the 1.x synchronous pull model in favor of a `Registry` subscribe-push model, combined with `CachingServiceDirectory` local snapshot caching for lock-free reads and **zero-loss degradation during registry failures**;
 - **Full Ecosystem Extensions**: Out-of-the-box support for local direct connection, Apache ZooKeeper (Curator 5.6 ephemeral nodes + real-time push), and Redis (Jedis 4.4 Set registry + polling diff push);
-- **Graceful Shutdown & Fault Tolerance**: Failover cluster retry, end-to-end Trace context, Spring Boot graceful offline deregistration.
+- **Graceful Shutdown & Fault Tolerance**: Failover cluster retry, end-to-end Trace context, Spring Boot graceful offline deregistration;
+- **Consumer Governance Loop (3.0)**: circuit breaker (dual-condition error/slow-call rate state machine), client rate limiting (token bucket + concurrency semaphore), Fallback degradation, in-flight cap fast-fail — all opt-in, off by default.
 
 > ⚠️ **Learning & Research Positioning**: This project focuses on crystal-clear presentation of core mechanisms and clean engineering design, making it ideal for deeply studying distributed network programming, RPC wire protocols, and service governance.
 
@@ -137,6 +138,47 @@ The framework adopts a unified SPI extension specification. Extension definition
 - **Non-blocking Invocations**: When RPC consumers initiate requests, instances are read solely from a local `ConcurrentHashMap` read-only snapshot, never synchronously waiting on remote registries;
 - **Zero-Loss Degradation during Registry Outages**: When the registry encounters network partitions, latency spikes, or complete failure, local caches are **completely frozen and retained**, allowing existing service instances to continue serving without disruption;
 - **Self-Healing**: Once registry nodes recover and reconnect, the real-time push pipeline resumes, and the local cache updates instantly to the latest state.
+
+---
+
+## 🛡️ Consumer Governance (3.0)
+
+Governance filters sit on the consumer chain in the order `Trace → Metrics → Fallback → RateLimit → CircuitBreaker → FailoverCluster`; backpressure lives in the transport layer. Everything is off by default (opt-in) — zero behavior change on upgrade. Consistent with 2.x "local status" principles: rejections are settled locally on the consumer (`CIRCUIT_OPEN` / `RATE_LIMITED` / `CLIENT_BUSY`) and never travel on the wire.
+
+| Capability | Mechanism | Inspired by |
+|---|---|---|
+| **Circuit Breaker** | Sliding window (second-level buckets) tracks error rate and slow-call rate; breaching either trips OPEN with fast-fail; after `open-ms` HALF_OPEN admits probes, success restores CLOSED | Hystrix/Sentinel state machine + Resilience4j dual condition |
+| **Client Rate Limiting** | Per-resource (`service#method`) token bucket + concurrency semaphore, instant rejection | Sentinel local flow control |
+| **Fallback Degradation** | `@RpcReference(fallback = X.class)` — on downstream failure or governance rejection, invoke the fallback implementation (container bean first, reflective instantiation otherwise) | Dubbo Mock (fail semantics) |
+| **In-flight Backpressure** | Consumer-wide in-flight cap; over-cap calls fail fast with `CLIENT_BUSY`, completing full-link backpressure with server-side CallerRuns | TCP congestion control |
+
+```java
+public static class HelloFallback implements HelloService {
+    @Override
+    public HelloDTO hello(String name) {
+        return new HelloDTO(name, "degraded: provider unavailable");
+    }
+}
+
+@RpcReference(fallback = HelloFallback.class)
+private HelloService protectedHelloService;
+```
+
+```yaml
+small-rpc:
+  consumer:
+    max-in-flight: 100
+    governance:
+      circuit-breaker:
+        enabled: true
+        min-calls: 5
+        open-ms: 5000
+      rate-limit:
+        enabled: true
+        qps: 50
+```
+
+> Metrics attribution: `RpcMetrics` snapshots now expose `rejections()` (split by circuit-open / rate-limit / concurrent-limit) and `degraded()` (fallback rescues).
 
 ---
 
@@ -349,6 +391,43 @@ The project includes ready-to-run demo modules (`rpc-example-server` and `rpc-ex
 
 ---
 
+### Scenario D: Circuit Open Fast-Fail & Half-Open Self-Healing (3.0 Governance Demo)
+
+The example client ships with governance demo config (`circuit-breaker.enabled=true, min-calls=5, open-ms=5000`) and a fallback-protected reference (`/rpc2/protected-hello`).
+
+1. Start provider and consumer (as in Scenario A);
+2. **Inject consecutive failures** (server throws on `name=boom`), fire 10 requests:
+   ```bash
+   for i in {1..10}; do curl -s "http://127.0.0.1:8091/rpc2/protected-hello?name=boom"; done
+   ```
+3. **Verify fast-fail**: switch to a normal call immediately — the circuit is OPEN, requests never reach the server (no new `hello called` in server logs), the call fails fast with CIRCUIT_OPEN and the Fallback returns the degraded message with near-zero RT:
+   ```bash
+   curl -s "http://127.0.0.1:8091/rpc2/protected-hello?name=alice"
+   # {"name":"alice","message":"degraded: provider unavailable"}
+   ```
+4. **Verify half-open healing**: after `open-ms` (5s) the breaker admits a half-open probe; the recovered service succeeds and the circuit returns to CLOSED:
+   ```bash
+   sleep 6 && curl -s "http://127.0.0.1:8091/rpc2/protected-hello?name=alice"
+   # {"name":"alice","message":"hello world"}
+   ```
+
+### Scenario E: Rate Limiting & In-flight Cap (3.0 Governance Demo)
+
+The example client is configured with `rate-limit.qps=50` and `max-in-flight=100`.
+
+1. **Rate limiting**: burst-load to exhaust the token bucket; some requests fail instantly (RATE_LIMITED, caught by fallback):
+   ```bash
+   for i in {1..100}; do curl -s "http://127.0.0.1:8091/rpc2/protected-hello?name=rl-$i" & done; wait
+   ```
+   Responses mix `hello world` with `degraded: provider unavailable` (the latter are rate-limited calls rescued by fallback).
+2. **In-flight cap**: `name=slow-...` blocks the server for 4s holding in-flight slots; requests beyond `max-in-flight` get CLIENT_BUSY immediately (no memory pile-up on the client):
+   ```bash
+   for i in {1..120}; do curl -s "http://127.0.0.1:8091/rpc2/protected-hello?name=slow-$i" & done; wait
+   ```
+3. **Metrics attribution**: read `RpcMetrics.snapshot()` from the consumer — `rejections()` splits by cause (circuit-open / rate-limit / concurrent-limit), `degraded()` counts fallback rescues.
+
+---
+
 ## ⚙️ Configuration Reference
 
 | Configuration Key | Default | Type | Description |
@@ -374,6 +453,18 @@ The project includes ready-to-run demo modules (`rpc-example-server` and `rpc-ex
 | `small-rpc.registry.redis.heartbeat-stale-ms` | `5000` | Long | Liveness lease TTL (ms); expired providers are evicted by consumer (must be ≥ heartbeat-ms) |
 | `small-rpc.registry.param.*` | - | Map<String, String> | Generic underlying registry parameter dictionary (backwards-compatible) |
 | `small-rpc.loadbalance` | `random` | String | Global load balancer SPI name: `random` or `roundrobin` |
+| `small-rpc.consumer.max-in-flight` | `0` | Integer | Consumer in-flight request cap; 0 = unlimited. Over-cap calls fail fast with CLIENT_BUSY |
+| `small-rpc.consumer.governance.circuit-breaker.enabled` | `false` | Boolean | Circuit breaker switch (opt-in) |
+| `small-rpc.consumer.governance.circuit-breaker.error-rate-threshold` | `0.5` | Double | Error-rate trip threshold (requires ≥ min-calls samples in window) |
+| `small-rpc.consumer.governance.circuit-breaker.slow-call-rate-threshold` | `0.5` | Double | Slow-call-rate trip threshold |
+| `small-rpc.consumer.governance.circuit-breaker.slow-rt-ms` | `0` | Long | Slow-call threshold ms; 0 = derive as 80% of call timeout budget |
+| `small-rpc.consumer.governance.circuit-breaker.min-calls` | `20` | Integer | Minimum samples in window (prevents cold-start false trips) |
+| `small-rpc.consumer.governance.circuit-breaker.window-ms` | `10000` | Long | Statistics sliding window (ms) |
+| `small-rpc.consumer.governance.circuit-breaker.open-ms` | `10000` | Long | Circuit OPEN duration (ms) |
+| `small-rpc.consumer.governance.circuit-breaker.half-open-probes` | `1` | Integer | HALF_OPEN probe permits |
+| `small-rpc.consumer.governance.rate-limit.enabled` | `false` | Boolean | Rate limit switch (opt-in) |
+| `small-rpc.consumer.governance.rate-limit.qps` | `0` | Integer | Per-resource token bucket rate (per second); 0 = unlimited |
+| `small-rpc.consumer.governance.rate-limit.max-concurrent` | `0` | Integer | Per-resource concurrency cap (semaphore); 0 = unlimited |
 
 ---
 

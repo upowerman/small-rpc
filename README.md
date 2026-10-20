@@ -19,7 +19,8 @@
 - **自研工业级 SPI**：支持默认实现绑定、依赖注入（内置环检测）、运行时自适应动态分发；
 - **事件驱动注册中心**：彻底退役 1.x 同步拉取模型，重构为 `Registry` 订阅-推送模型，配合 `CachingServiceDirectory` 本地快照缓存实现无锁极速读取与**注册中心故障无损降级**；
 - **全套生态扩展**：开箱即用支持本地直连、Apache ZooKeeper（Curator 5.6 临时节点 + 真实推送）及 Redis（Jedis 4.4 Set 注册表 + 轮询差量比对推送）；
-- **优雅停机与容错**：Failover 集群重试、全链路 Trace 上下文、Spring Boot 优雅下线与自动注销。
+- **优雅停机与容错**：Failover 集群重试、全链路 Trace 上下文、Spring Boot 优雅下线与自动注销；
+- **消费端治理闭环（3.0）**：熔断（错误率/慢调用双条件三态状态机）、客户端限流（令牌桶+并发信号量）、降级 Fallback、在途上限快速失败——全部 opt-in，默认关闭。
 
 > ⚠️ **学习与研究定位**：本项目专注于核心机制的极致清晰呈现与工程规范设计，适合深入学习分布式网络编程、RPC 通信协议与服务治理机制。
 
@@ -166,6 +167,47 @@ Object result = genericService.$invoke(
 - **业务调用永不阻塞**：RPC 消费端发起请求时，仅从本地 `ConcurrentHashMap` 缓存读取实例列表，不与任何远程注册中心产生网络同步等待；
 - **注册中心故障无损降级**：当注册中心发生网络分区、抖动、甚至全量停机时，本地缓存被**完全冻结保留**，已有服务实例的调用完全不受影响（降级继续可用）；
 - **故障自愈**：当注册中心节点恢复并重连成功后，实时推送管道自动恢复，缓存即时刷新为最新状态。
+
+---
+
+## 🛡️ 消费端治理（3.0）
+
+治理三件以 Filter 形式挂在消费端链上，链序 `Trace → Metrics → Fallback → RateLimit → CircuitBreaker → FailoverCluster`；在途背压落在传输层。全部默认关闭（opt-in），升级零行为变化。与 2.x 一致的「本地状态码」原则：熔断/限流/在途上限的拒绝只在消费端本地结算（`CIRCUIT_OPEN` / `RATE_LIMITED` / `CLIENT_BUSY`），绝不上网络线。
+
+| 能力 | 机制 | 思想出处 |
+|---|---|---|
+| **熔断器** | 滑动窗口（秒级桶）统计错误率与慢调用率，任一超阈值即 OPEN 快速失败；`open-ms` 后进入 HALF_OPEN 放行探测，成功恢复 CLOSED | Hystrix/Sentinel 状态机 + Resilience4j 双条件 |
+| **客户端限流** | 每资源（`service#method`）令牌桶限速 + 并发信号量闸门，拒绝立即返回 | Sentinel 单机流控 |
+| **降级 Fallback** | `@RpcReference(fallback = X.class)`，下游失败或治理拒绝时调用兜底实现（容器 bean 优先，缺省反射实例化） | Dubbo Mock（fail 语义） |
+| **在途背压** | 消费端全局 in-flight 上限，超限 `CLIENT_BUSY` 快速失败，与服务端 CallerRuns 构成全链路背压 | TCP 拥塞控制思想 |
+
+```java
+public static class HelloFallback implements HelloService {
+    @Override
+    public HelloDTO hello(String name) {
+        return new HelloDTO(name, "degraded: provider unavailable");
+    }
+}
+
+@RpcReference(fallback = HelloFallback.class)
+private HelloService protectedHelloService;
+```
+
+```yaml
+small-rpc:
+  consumer:
+    max-in-flight: 100
+    governance:
+      circuit-breaker:
+        enabled: true
+        min-calls: 5
+        open-ms: 5000
+      rate-limit:
+        enabled: true
+        qps: 50
+```
+
+> 指标归因：`RpcMetrics` 快照新增 `rejections()`（按 circuit-open / rate-limit / concurrent-limit 分列）与 `degraded()`（Fallback 救回次数）。
 
 ---
 
@@ -379,6 +421,43 @@ public class HelloController {
 
 ---
 
+### 场景 D：熔断打开快速失败与半开自愈（3.0 治理演示）
+
+示例客户端已内置治理演示配置（`circuit-breaker.enabled=true, min-calls=5, open-ms=5000`）与带 fallback 的受保护引用（`/rpc2/protected-hello`）。
+
+1. 启动提供方与消费方（同场景 A 步骤）；
+2. **注入连续失败**（服务端对 `name=boom` 抛异常），连发 10 次：
+   ```bash
+   for i in {1..10}; do curl -s "http://127.0.0.1:8091/rpc2/protected-hello?name=boom"; done
+   ```
+3. **验证熔断快速失败**：立即换成正常调用——熔断已打开，请求不再到达服务端（服务端日志无新 `hello called`），调用以 CIRCUIT_OPEN 快速失败并由 Fallback 兜底返回降级文案，RT 接近 0：
+   ```bash
+   curl -s "http://127.0.0.1:8091/rpc2/protected-hello?name=alice"
+   # 返回 {"name":"alice","message":"degraded: provider unavailable"}
+   ```
+4. **验证半开自愈**：等待 `open-ms`（5s）后熔断放行半开探测，服务已恢复 → 探测成功回到 CLOSED，恢复正常响应：
+   ```bash
+   sleep 6 && curl -s "http://127.0.0.1:8091/rpc2/protected-hello?name=alice"
+   # 返回 {"name":"alice","message":"hello world"}
+   ```
+
+### 场景 E：限流与在途上限（3.0 治理演示）
+
+示例客户端已配置 `rate-limit.qps=50` 与 `max-in-flight=100`。
+
+1. **限流验证**：突发压测触发令牌桶拒绝，部分请求立即失败（RATE_LIMITED，被 fallback 接住）：
+   ```bash
+   for i in {1..100}; do curl -s "http://127.0.0.1:8091/rpc2/protected-hello?name=rl-$i" & done; wait
+   ```
+   响应中混合 `hello world` 与 `degraded: provider unavailable`（后者即限流拒绝被兜底的调用）。
+2. **在途上限验证**：用 `name=slow-...` 让服务端阻塞 4s 占住 in-flight 名额，并发超过 `max-in-flight` 的请求立即得到 CLIENT_BUSY（不会堆积在客户端内存）：
+   ```bash
+   for i in {1..120}; do curl -s "http://127.0.0.1:8091/rpc2/protected-hello?name=slow-$i" & done; wait
+   ```
+3. **指标归因**：消费端日志或运维端点读取 `RpcMetrics.snapshot()`，`rejections()` 按原因（circuit-open / rate-limit / concurrent-limit）分列，`degraded()` 为兜底触发次数。
+
+---
+
 ## ⚙️ 全量配置项参考
 
 | 配置项 | 默认值 | 类型 | 详细说明 |
@@ -412,6 +491,18 @@ public class HelloController {
 | `small-rpc.registry.redis.heartbeat-stale-ms` | `5000` | Long | 存活租约键 TTL（毫秒）；Provider 被动退出超过此值未续期即被 Consumer 剔除，须 ≥ heartbeat-ms |
 | `small-rpc.registry.param.*` | - | Map<String, String> | 底层注册中心原始通用参数字典（向下兼容，同名键优先级高于强类型默认值） |
 | `small-rpc.loadbalance` | `random` | String | 全局负载均衡算法 SPI 名：`random`（随机）、`roundrobin`（轮询）或 `weightedrandom`（加权随机，配合 `provider.weight` / `provider.warmup-ms`） |
+| `small-rpc.consumer.max-in-flight` | `0` | Integer | 客户端在途请求上限；0 = 不限。超限以 CLIENT_BUSY 快速失败 |
+| `small-rpc.consumer.governance.circuit-breaker.enabled` | `false` | Boolean | 熔断开关（opt-in） |
+| `small-rpc.consumer.governance.circuit-breaker.error-rate-threshold` | `0.5` | Double | 错误率跳闸阈值（窗口内样本 ≥ min-calls 才生效） |
+| `small-rpc.consumer.governance.circuit-breaker.slow-call-rate-threshold` | `0.5` | Double | 慢调用率跳闸阈值 |
+| `small-rpc.consumer.governance.circuit-breaker.slow-rt-ms` | `0` | Long | 慢调用阈值毫秒；0 = 按调用超时预算 80% 推导 |
+| `small-rpc.consumer.governance.circuit-breaker.min-calls` | `20` | Integer | 窗口内最少样本数（防冷启动误跳） |
+| `small-rpc.consumer.governance.circuit-breaker.window-ms` | `10000` | Long | 统计滑动窗口毫秒 |
+| `small-rpc.consumer.governance.circuit-breaker.open-ms` | `10000` | Long | 熔断打开持续时间毫秒 |
+| `small-rpc.consumer.governance.circuit-breaker.half-open-probes` | `1` | Integer | 半开探测名额 |
+| `small-rpc.consumer.governance.rate-limit.enabled` | `false` | Boolean | 限流开关（opt-in） |
+| `small-rpc.consumer.governance.rate-limit.qps` | `0` | Integer | 每资源令牌桶速率（每秒）；0 = 不限速 |
+| `small-rpc.consumer.governance.rate-limit.max-concurrent` | `0` | Integer | 每资源并发上限（信号量）；0 = 不限并发 |
 
 ---
 
