@@ -239,7 +239,13 @@
                         <configuration>
                             <publishingServerId>central</publishingServerId>
                             <autoPublish>true</autoPublish>
-                            <waitUntil>published</waitUntil>
+                            <!--
+                                只等到 Central 校验通过（VALIDATED）就返回，不再空等
+                                PUBLISHED 阶段（实测约十几分钟）。
+                                插件只接受 UPLOADED / VALIDATED / PUBLISHED 三个值，
+                                没有 PUBLISHING 这个选项。
+                            -->
+                            <waitUntil>VALIDATED</waitUntil>
                             <excludeArtifacts>
                                 <excludeArtifact>rpc-examples</excludeArtifact>
                                 <excludeArtifact>rpc-example-api</excludeArtifact>
