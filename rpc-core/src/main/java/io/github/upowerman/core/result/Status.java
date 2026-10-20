@@ -17,5 +17,12 @@ public enum Status {
     /** 服务端执行出错 */
     SERVER_ERROR,
     /** 网络错误 */
-    NETWORK_ERROR
+    NETWORK_ERROR,
+    // —— 以下三个为消费端本地结算状态：只在客户端产生、绝不序列化上网络帧 ——
+    /** 熔断打开，快速失败（消费端本地） */
+    CIRCUIT_OPEN,
+    /** 客户端限流拒绝（速率或并发，消费端本地） */
+    RATE_LIMITED,
+    /** 客户端在途请求超上限（消费端本地） */
+    CLIENT_BUSY
 }
