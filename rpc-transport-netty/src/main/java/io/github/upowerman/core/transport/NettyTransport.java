@@ -33,7 +33,7 @@ public class NettyTransport implements Transport {
     private static final int CONNECT_TIMEOUT_MILLIS = 3000;
 
     private final Serializer serializer;
-    private final PendingRequests pending = new PendingRequests();
+    private final PendingRequests pending;
     private final long defaultTimeoutMillis;
     private final ConcurrentMap<String, Channel> channels = new ConcurrentHashMap<String, Channel>();
     private final ConcurrentMap<String, Object> locks = new ConcurrentHashMap<String, Object>();
@@ -41,15 +41,20 @@ public class NettyTransport implements Transport {
     private volatile boolean closed;
 
     public NettyTransport(Serializer serializer) {
-        this(serializer, DEFAULT_REQUEST_TIMEOUT_MILLIS);
+        this(serializer, DEFAULT_REQUEST_TIMEOUT_MILLIS, 0);
     }
 
     public NettyTransport(Serializer serializer, long defaultTimeoutMillis) {
+        this(serializer, defaultTimeoutMillis, 0);
+    }
+
+    public NettyTransport(Serializer serializer, long defaultTimeoutMillis, int maxInFlight) {
         this.serializer = serializer;
         // 兜底超时绝不允许非正：非正只会让挂起请求永不超时
         this.defaultTimeoutMillis = defaultTimeoutMillis > 0
                 ? defaultTimeoutMillis
                 : DEFAULT_REQUEST_TIMEOUT_MILLIS;
+        this.pending = new PendingRequests(maxInFlight);
     }
 
     @Override

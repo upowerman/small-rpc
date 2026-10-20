@@ -44,6 +44,16 @@ public class PendingRequests {
 
     private final ConcurrentMap<Long, CompletableFuture<Result>> pending = new ConcurrentHashMap<Long, CompletableFuture<Result>>();
     private final AtomicLong idGenerator = new AtomicLong();
+    /** 在途请求上限；<= 0 = 不限（兼容旧行为） */
+    private final int maxInFlight;
+
+    public PendingRequests() {
+        this(0);
+    }
+
+    public PendingRequests(int maxInFlight) {
+        this.maxInFlight = maxInFlight;
+    }
 
     public long nextRequestId() {
         return idGenerator.incrementAndGet();
@@ -60,6 +70,12 @@ public class PendingRequests {
      */
     public CompletableFuture<Result> register(long requestId, long timeoutMillis) {
         final CompletableFuture<Result> future = new CompletableFuture<Result>();
+        if (maxInFlight > 0 && pending.size() >= maxInFlight) {
+            // 客户端在途背压（3.0 治理）：快速失败，不写表、不调度超时任务
+            future.complete(DefaultResult.failure(Status.CLIENT_BUSY,
+                    new RpcException("client busy: in-flight requests reached " + maxInFlight)));
+            return future;
+        }
         pending.put(requestId, future);
         if (timeoutMillis > 0) {
             final ScheduledFuture<?> task = TIMEOUT_SCHEDULER.schedule(() -> {
