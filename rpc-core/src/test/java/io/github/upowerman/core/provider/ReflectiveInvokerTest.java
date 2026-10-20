@@ -6,6 +6,7 @@ import io.github.upowerman.core.result.Status;
 import org.junit.Test;
 
 import java.util.HashMap;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.assertEquals;
@@ -18,6 +19,10 @@ public class ReflectiveInvokerTest {
         String echo(String msg);
 
         void boom();
+
+        CompletableFuture<String> echoAsync(String msg);
+
+        CompletableFuture<String> boomAsync();
     }
 
     public static class EchoServiceImpl implements EchoService {
@@ -29,6 +34,18 @@ public class ReflectiveInvokerTest {
         @Override
         public void boom() {
             throw new IllegalStateException("biz error");
+        }
+
+        @Override
+        public CompletableFuture<String> echoAsync(String msg) {
+            return CompletableFuture.completedFuture("async:" + msg);
+        }
+
+        @Override
+        public CompletableFuture<String> boomAsync() {
+            CompletableFuture<String> failed = new CompletableFuture<String>();
+            failed.completeExceptionally(new IllegalStateException("async biz error"));
+            return failed;
         }
     }
 
@@ -66,5 +83,27 @@ public class ReflectiveInvokerTest {
         assertSame(Status.SERVER_ERROR, result.status());
         assertNotNull(result.exception());
         assertEquals("biz error", result.exception().getMessage());
+    }
+
+    @Test
+    public void completableFutureReturnValueIsUnwrappedToPlainValue() throws Exception {
+        // A2：实现返回 CompletableFuture 时，Result 携带的必须是解包后的业务值（可序列化），
+        // 而不是 future 对象本身
+        ReflectiveInvoker invoker = invoker();
+        io.github.upowerman.core.result.Result result = invoker.invoke(
+                invocation("echoAsync", new Class<?>[]{String.class}, new Object[]{"hi"}))
+                .get(1, TimeUnit.SECONDS);
+        assertSame(Status.SUCCESS, result.status());
+        assertEquals("async:hi", result.value());
+    }
+
+    @Test
+    public void exceptionallyCompletedFutureGivesServerErrorWithRealCause() throws Exception {
+        ReflectiveInvoker invoker = invoker();
+        io.github.upowerman.core.result.Result result = invoker.invoke(
+                invocation("boomAsync", new Class<?>[0], new Object[0])).get(1, TimeUnit.SECONDS);
+        assertSame(Status.SERVER_ERROR, result.status());
+        assertNotNull(result.exception());
+        assertEquals("async biz error", result.exception().getMessage());
     }
 }

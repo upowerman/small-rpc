@@ -22,8 +22,11 @@ public @interface RpcReference {
     /** 负载均衡扩展名（SPI 名）；空 = 默认扩展 */
     String loadBalance() default "";
 
-    /** 单次调用超时毫秒 */
-    long timeout() default 3000;
+    /** 单次调用超时毫秒；-1 = 未设置，走全局 small-rpc.consumer.timeout-ms */
+    long timeout() default -1;
+
+    /** 失败重试次数（额外尝试数，0 = 不重试）；-1 = 未设置，走全局 small-rpc.consumer.retries */
+    int retries() default -1;
 
     /** 直连地址 host:port；空 = 走注册中心 */
     String address() default "";

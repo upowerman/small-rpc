@@ -18,8 +18,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 public class RpcChainIntegrationTest {
@@ -32,6 +34,25 @@ public class RpcChainIntegrationTest {
         @Override
         public String echo(String msg) {
             return "echo:" + msg;
+        }
+    }
+
+    /** A2：同一接口混合同步与 CompletableFuture 签名，代理按方法签名自动分流 */
+    public interface MixedEchoService {
+        String echo(String msg);
+
+        CompletableFuture<String> echoAsync(String msg);
+    }
+
+    public static class MixedEchoServiceImpl implements MixedEchoService {
+        @Override
+        public String echo(String msg) {
+            return "echo:" + msg;
+        }
+
+        @Override
+        public CompletableFuture<String> echoAsync(String msg) {
+            return CompletableFuture.completedFuture("async:" + msg);
         }
     }
 
@@ -115,6 +136,54 @@ public class RpcChainIntegrationTest {
         } catch (RpcException expected) {
             // ok
         }
+    }
+
+    private static MixedEchoService mixedProxy(Registry registry, InMemoryTransport transport) {
+        CachingServiceDirectory directory = new CachingServiceDirectory(registry);
+        directory.subscribe(MixedEchoService.class.getName());
+        FailoverClusterInvoker cluster = new FailoverClusterInvoker(
+                directory, new RandomLoadBalancer(),
+                new RemoteInvoker(transport, MixedEchoService.class), 0, 1000);
+        return new RpcProxyFactory<MixedEchoService>(MixedEchoService.class,
+                Collections.<Filter>singletonList(new TraceFilter()), cluster).getProxy();
+    }
+
+    @Test
+    public void asyncMethodReturnsFutureWithUnwrappedValue() throws Exception {
+        InMemoryTransport transport = new InMemoryTransport();
+        transport.register("127.0.0.1:7080",
+                new ReflectiveInvoker(MixedEchoService.class, new MixedEchoServiceImpl()));
+        MixedEchoService service = mixedProxy(stubRegistry("127.0.0.1:7080"), transport);
+
+        CompletableFuture<String> future = service.echoAsync("hello");
+        assertEquals("async:hello", future.get(2, java.util.concurrent.TimeUnit.SECONDS));
+    }
+
+    @Test
+    public void asyncFailureCompletesExceptionallyWithoutBlocking() throws Exception {
+        InMemoryTransport transport = new InMemoryTransport();
+        MixedEchoService service = mixedProxy(stubRegistry(), transport);
+
+        CompletableFuture<String> future = service.echoAsync("hello");
+        try {
+            future.get(2, java.util.concurrent.TimeUnit.SECONDS);
+            fail("expected ExecutionException");
+        } catch (java.util.concurrent.ExecutionException expected) {
+            assertTrue("根因应为 RpcException，实际: " + expected.getCause(),
+                    expected.getCause() instanceof RpcException);
+        }
+    }
+
+    @Test
+    public void syncAndAsyncMethodsCoexistInOneProxy() throws Exception {
+        InMemoryTransport transport = new InMemoryTransport();
+        transport.register("127.0.0.1:7080",
+                new ReflectiveInvoker(MixedEchoService.class, new MixedEchoServiceImpl()));
+        MixedEchoService service = mixedProxy(stubRegistry("127.0.0.1:7080"), transport);
+
+        assertEquals("echo:sync", service.echo("sync"));
+        assertEquals("async:async", service.echoAsync("async")
+                .get(2, java.util.concurrent.TimeUnit.SECONDS));
     }
 
     @Test

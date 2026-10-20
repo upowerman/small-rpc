@@ -8,9 +8,11 @@ import io.github.upowerman.core.invocation.Invocation;
 import io.github.upowerman.core.registry.Registry;
 import io.github.upowerman.core.result.DefaultResult;
 import io.github.upowerman.core.result.Result;
+import io.github.upowerman.core.result.Status;
 import io.github.upowerman.core.transport.Connection;
 import io.github.upowerman.core.transport.Endpoint;
 import io.github.upowerman.core.transport.Transport;
+import io.github.upowerman.exception.RpcException;
 import org.junit.Test;
 
 import java.lang.reflect.Field;
@@ -40,6 +42,43 @@ public class ReferenceBeanPostProcessorTest {
     public static class DirectConsumer {
         @RpcReference(address = "127.0.0.1:7099", timeout = 100)
         private EchoService echoService;
+    }
+
+    /** 注解显式重试 2 次：可容忍桩 Transport 前两次失败 */
+    public static class RetryConsumer {
+        @RpcReference(retries = 2, timeout = 2000)
+        private EchoService echoService;
+    }
+
+    /** 注解显式 0 次重试：首次失败直接抛出 */
+    public static class NoRetryConsumer {
+        @RpcReference(retries = 0, timeout = 2000)
+        private EchoService echoService;
+    }
+
+    /** 前 failCount 次 request 回 NETWORK_ERROR，其后回 SUCCESS——观测 Failover 重试次数 */
+    private static Transport flakyTransport(final int failCount, final List<Integer> attemptLog) {
+        return new Transport() {
+            @Override
+            public Connection connect(Endpoint endpoint) {
+                return new Connection() {
+                    @Override
+                    public CompletableFuture<Result> request(Invocation invocation) {
+                        attemptLog.add(attemptLog.size() + 1);
+                        if (attemptLog.size() <= failCount) {
+                            return CompletableFuture.completedFuture(DefaultResult.failure(
+                                    Status.NETWORK_ERROR,
+                                    new RpcException("flaky failure #" + attemptLog.size())));
+                        }
+                        return CompletableFuture.completedFuture(DefaultResult.success("recovered"));
+                    }
+
+                    @Override
+                    public void close() {
+                    }
+                };
+            }
+        };
     }
 
     /** 记录实际连接地址的桩 Transport：用于观测目录解析与负载均衡选择结果 */
@@ -95,6 +134,61 @@ public class ReferenceBeanPostProcessorTest {
         assertEquals("roundrobin", ReferenceBeanPostProcessor.resolveLoadBalanceName(null, "roundrobin"));
         assertEquals("random", ReferenceBeanPostProcessor.resolveLoadBalanceName("", ""));
         assertEquals("random", ReferenceBeanPostProcessor.resolveLoadBalanceName(null, null));
+    }
+
+    @Test
+    public void timeoutResolvesAnnotationThenGlobalAndFailsLoudOnBadGlobal() {
+        assertEquals(200L, ReferenceBeanPostProcessor.resolveTimeout(200, 5000));
+        assertEquals(5000L, ReferenceBeanPostProcessor.resolveTimeout(-1, 5000));
+        assertEquals(5000L, ReferenceBeanPostProcessor.resolveTimeout(0, 5000)); // 0 = 未设置
+        try {
+            ReferenceBeanPostProcessor.resolveTimeout(-1, 0);
+            fail("expected IllegalArgumentException on non-positive global timeout");
+        } catch (IllegalArgumentException expected) {
+            assertTrue(expected.getMessage().contains("timeout-ms"));
+        }
+    }
+
+    @Test
+    public void retriesResolveAnnotationThenGlobalAndFailsLoudOnNegativeGlobal() {
+        assertEquals(3, ReferenceBeanPostProcessor.resolveRetries(3, 1));
+        assertEquals(0, ReferenceBeanPostProcessor.resolveRetries(0, 1)); // 0 = 显式不重试
+        assertEquals(1, ReferenceBeanPostProcessor.resolveRetries(-1, 1));
+        try {
+            ReferenceBeanPostProcessor.resolveRetries(-1, -2);
+            fail("expected IllegalArgumentException on negative global retries");
+        } catch (IllegalArgumentException expected) {
+            assertTrue(expected.getMessage().contains("retries"));
+        }
+    }
+
+    @Test
+    public void annotationRetriesDriveFailoverAttempts() throws Exception {
+        List<Integer> attempts = new ArrayList<Integer>();
+        ReferenceBeanPostProcessor processor = new ReferenceBeanPostProcessor(
+                flakyTransport(2, attempts), new LocalServiceRegistryForTest("127.0.0.1:1"), "");
+        RetryConsumer consumer = new RetryConsumer();
+        processor.injectReferences(consumer);
+
+        assertEquals("recovered", injectedEchoService(consumer, "echoService").echo("hi"));
+        assertEquals("retries=2 应恰好发起 3 次尝试", 3, attempts.size());
+    }
+
+    @Test
+    public void zeroRetriesSurfacesFailureImmediately() throws Exception {
+        List<Integer> attempts = new ArrayList<Integer>();
+        ReferenceBeanPostProcessor processor = new ReferenceBeanPostProcessor(
+                flakyTransport(2, attempts), new LocalServiceRegistryForTest("127.0.0.1:1"), "");
+        NoRetryConsumer consumer = new NoRetryConsumer();
+        processor.injectReferences(consumer);
+
+        try {
+            injectedEchoService(consumer, "echoService").echo("hi");
+            fail("expected RpcException");
+        } catch (RpcException expected) {
+            // ok
+        }
+        assertEquals("retries=0 只允许 1 次尝试", 1, attempts.size());
     }
 
     @Test

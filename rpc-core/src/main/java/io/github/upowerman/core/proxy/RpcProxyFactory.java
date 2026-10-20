@@ -6,12 +6,13 @@ import io.github.upowerman.core.invocation.GenericInvocation;
 import io.github.upowerman.core.invocation.Invocation;
 import io.github.upowerman.core.invoker.Invoker;
 import io.github.upowerman.core.result.Result;
-import io.github.upowerman.core.result.Status;
+import io.github.upowerman.core.result.Results;
 import io.github.upowerman.exception.RpcException;
 
 import java.lang.reflect.Proxy;
 import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -20,9 +21,13 @@ import java.util.concurrent.TimeoutException;
  * 2.0 代理工厂：InvocationHandler 只做 Invocation 构造 + 发起调用，
  * 与 1.x 上帝类 RpcReferenceInvocationHandler 的对应物。
  * <p>
- * 外层 {@code get(...)} 使用 {@link #callTimeoutMillis} 作为有界兜底：即使下游链路
+ * 同步方法走 {@link #await}：使用 {@link #callTimeoutMillis} 作为有界兜底——即使下游链路
  * （非正预算 + 静默上游等极端情形）意外未完成，调用也不会永久悬挂，超时抛出
  * {@link RpcException}。正常路径下 ClusterInvoker 会在其 deadline 内先行结算。
+ * <p>
+ * 异步方法（A2）：接口方法签名返回 {@link CompletableFuture} 时，代理不阻塞，
+ * 直接把内部调用链的 future 透传给调用方（成功取 value，失败以 RpcException 结算）。
+ * 方法签名即协议，无需任何注解。
  */
 public class RpcProxyFactory<T> {
 
@@ -57,19 +62,31 @@ public class RpcProxyFactory<T> {
                     Invocation invocation = new GenericInvocation(interfaceClass.getName(),
                             method.getName(), method.getParameterTypes(), args,
                             new HashMap<String, Object>());
+                    if (method.getReturnType() == CompletableFuture.class) {
+                        return invokeAsync(invocation);
+                    }
                     Result result = await(invocation);
-                    if (result.status() == Status.SUCCESS) {
-                        return result.value();
-                    }
-                    Throwable cause = result.exception();
-                    if (cause instanceof RpcException) {
-                        throw (RpcException) cause;
-                    }
-                    if (cause != null) {
-                        throw new RpcException(cause);
-                    }
-                    throw new RpcException("rpc call failed, status: " + result.status());
+                    return Results.unwrap(result);
                 });
+    }
+
+    /** 异步路径：链尾 future 直接透传，不在代理层阻塞；失败统一以 RpcException 结算 */
+    private CompletableFuture<Object> invokeAsync(Invocation invocation) {
+        CompletableFuture<Result> call;
+        try {
+            call = chainHead.invoke(invocation);
+        } catch (RpcException e) {
+            return exceptionally(e);
+        } catch (Throwable t) {
+            return exceptionally(new RpcException(t));
+        }
+        return call.thenApply(Results::unwrap);
+    }
+
+    private static CompletableFuture<Object> exceptionally(RpcException e) {
+        CompletableFuture<Object> failed = new CompletableFuture<Object>();
+        failed.completeExceptionally(e);
+        return failed;
     }
 
     private Result await(Invocation invocation) {
