@@ -30,4 +30,7 @@ public @interface RpcReference {
 
     /** 直连地址 host:port；空 = 走注册中心 */
     String address() default "";
+
+    /** 降级兜底实现类：须实现本注解所在的业务接口；优先取 Spring 容器 bean，无则反射实例化；默认 void.class = 不启用 */
+    Class<?> fallback() default void.class;
 }

@@ -51,11 +51,13 @@ public class Rpc2ConsumerAutoConfiguration {
     @Bean
     public ReferenceBeanPostProcessor referenceBeanPostProcessor(NettyTransport nettyTransport,
                                                                  Registry rpc2Registry,
-                                                                 Rpc2Properties properties) {
+                                                                 Rpc2Properties properties,
+                                                                 org.springframework.beans.factory.BeanFactory beanFactory) {
         // small-rpc.loadbalance 与 small-rpc.consumer.timeout-ms/retries 在此进入链路：
-        // 注解未指定时作为缺省负载均衡扩展名 / 缺省超时与重试
+        // 注解未指定时作为缺省负载均衡扩展名 / 缺省超时与重试；
+        // BeanFactory 供 @RpcReference.fallback 优先解析容器 bean
         return new ReferenceBeanPostProcessor(nettyTransport, rpc2Registry, properties.getLoadBalance(),
-                properties.getConsumer().getTimeoutMs(), properties.getConsumer().getRetries());
+                properties.getConsumer().getTimeoutMs(), properties.getConsumer().getRetries(), beanFactory);
     }
 
     /** C7：泛化调用门面——网关/运维场景不引入业务接口 jar 直接按服务名+方法名调用 */

@@ -5,6 +5,7 @@ import io.github.upowerman.core.cluster.FailoverClusterInvoker;
 import io.github.upowerman.core.directory.CachingServiceDirectory;
 import io.github.upowerman.core.directory.ServiceDirectory;
 import io.github.upowerman.core.directory.StaticServiceDirectory;
+import io.github.upowerman.core.filter.FallbackFilter;
 import io.github.upowerman.core.filter.Filter;
 import io.github.upowerman.core.filter.MetricsFilter;
 import io.github.upowerman.core.filter.TraceFilter;
@@ -18,11 +19,13 @@ import io.github.upowerman.core.transport.Transport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.config.InstantiationAwareBeanPostProcessorAdapter;
 import org.springframework.util.ReflectionUtils;
 
 import java.lang.reflect.Field;
-import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 消费方装配：字段 @RpcReference → 2.0 链路代理。
@@ -58,20 +61,29 @@ public class ReferenceBeanPostProcessor extends InstantiationAwareBeanPostProces
     private final long defaultTimeoutMillis;
     /** small-rpc.consumer.retries：注解未指定重试时的缺省 */
     private final int defaultRetries;
+    /** fallback 解析用的容器（可为 null：无容器环境/单测直连，fallback 走反射实例化） */
+    private final BeanFactory beanFactory;
 
     public ReferenceBeanPostProcessor(Transport transport, Registry registry,
                                       String defaultLoadBalance) {
-        this(transport, registry, defaultLoadBalance, FALLBACK_TIMEOUT_MILLIS, FALLBACK_RETRIES);
+        this(transport, registry, defaultLoadBalance, FALLBACK_TIMEOUT_MILLIS, FALLBACK_RETRIES, null);
     }
 
     public ReferenceBeanPostProcessor(Transport transport, Registry registry,
                                       String defaultLoadBalance, long defaultTimeoutMillis,
                                       int defaultRetries) {
+        this(transport, registry, defaultLoadBalance, defaultTimeoutMillis, defaultRetries, null);
+    }
+
+    public ReferenceBeanPostProcessor(Transport transport, Registry registry,
+                                      String defaultLoadBalance, long defaultTimeoutMillis,
+                                      int defaultRetries, BeanFactory beanFactory) {
         this.transport = transport;
         this.registry = registry;
         this.defaultLoadBalance = defaultLoadBalance;
         this.defaultTimeoutMillis = defaultTimeoutMillis;
         this.defaultRetries = defaultRetries;
+        this.beanFactory = beanFactory;
     }
 
     @Override
@@ -112,9 +124,44 @@ public class ReferenceBeanPostProcessor extends InstantiationAwareBeanPostProces
         FailoverClusterInvoker cluster = new FailoverClusterInvoker(
                 directory, loadBalancer, remoteInvoker, retries, timeoutMillis);
         // 链序：Trace（traceId 先落 attachments）→ Metrics（计时含 Cluster 重试全程）
+        // → Fallback（包住全部下游失败，治理拒绝也由它兜底）
+        List<Filter> filters = new ArrayList<Filter>();
+        filters.add(new TraceFilter());
+        filters.add(new MetricsFilter());
+        Object fallbackInstance = resolveFallback(iface, reference.fallback(), beanFactory);
+        if (fallbackInstance != null) {
+            filters.add(new FallbackFilter(fallbackInstance));
+        }
         return new RpcProxyFactory(
-                iface, Arrays.<Filter>asList(new TraceFilter(), new MetricsFilter()), cluster,
+                iface, filters, cluster,
                 timeoutMillis + OUTER_GET_MARGIN_MILLIS).getProxy();
+    }
+
+    /**
+     * fallback 解析：容器 bean 优先，缺省反射实例化；类型不匹配/无法实例化大声失败。
+     * 返回 null = 注解未设置（void.class 哨兵），不装配 FallbackFilter。
+     */
+    static Object resolveFallback(Class<?> iface, Class<?> fallbackClass, BeanFactory beanFactory) {
+        if (fallbackClass == void.class) {
+            return null;
+        }
+        if (!iface.isAssignableFrom(fallbackClass)) {
+            throw new IllegalStateException("fallback 类 " + fallbackClass.getName()
+                    + " 未实现业务接口 " + iface.getName());
+        }
+        if (beanFactory != null) {
+            try {
+                return beanFactory.getBean(fallbackClass);
+            } catch (org.springframework.beans.factory.NoSuchBeanDefinitionException notInContainer) {
+                // 容器无此类型 → 反射实例化
+            }
+        }
+        try {
+            return fallbackClass.getDeclaredConstructor().newInstance();
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("fallback 类无法实例化（需 public 无参构造或注册为 Spring bean）: "
+                    + fallbackClass.getName(), e);
+        }
     }
 
     /**
