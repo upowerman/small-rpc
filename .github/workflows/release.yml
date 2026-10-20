@@ -59,13 +59,19 @@ jobs:
           import xml.etree.ElementTree as ET
 
           ns = {'m': 'http://maven.apache.org/POM/4.0.0'}
-          pom_version = ET.parse('pom.xml').getroot().findtext('m:version', namespaces=ns)
+          root = ET.parse('pom.xml').getroot()
+
+          # CI Friendly: 版本真值在 <properties><revision> 中
+          revision = root.findtext('m:properties/m:revision', namespaces=ns)
+          if revision is None:
+              raise SystemExit('::error::pom.xml 中未找到 <properties><revision>，请检查 CI Friendly 配置')
+
           tag = os.environ['GITHUB_REF'].replace('refs/tags/', '', 1)
 
-          print('pom version = %s' % pom_version)
-          print('git tag     = %s' % tag)
-          if tag != pom_version:
-              raise SystemExit('::error::tag %s 与 pom 版本 %s 不一致，拒绝发布' % (tag, pom_version))
+          print('revision = %s' % revision)
+          print('git tag  = %s' % tag)
+          if tag != revision:
+              raise SystemExit('::error::tag %s 与 pom revision %s 不一致，拒绝发布' % (tag, revision))
           PY
 
       - name: Import GPG private key
