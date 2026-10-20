@@ -1,0 +1,1 @@
+default=io.github.upowerman.core.governance.DefaultCircuitBreaker
