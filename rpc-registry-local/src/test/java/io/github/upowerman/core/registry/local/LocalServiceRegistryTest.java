@@ -190,4 +190,51 @@ public class LocalServiceRegistryTest {
         Assert.assertEquals(1, received.size());
         Assert.assertTrue(received.get(0).isEmpty());
     }
+
+    /**
+     * 7. B3：注册的实例元数据（weight/startTime/warmup）随订阅快照原样到达消费端
+     */
+    @Test
+    public void testRegisteredInstanceMetadataFlowsToSubscriberSnapshot() {
+        registry.init(Collections.<String, String>emptyMap());
+        String service = "io.github.upowerman.DemoService";
+
+        registry.register(service, new ServiceInstance("127.0.0.1:8080", 5, 1690000000000L, 30000L));
+
+        final List<List<ServiceInstance>> received = new ArrayList<List<ServiceInstance>>();
+        registry.subscribe(service, new ServiceListener() {
+            @Override
+            public void onChange(List<ServiceInstance> instances) {
+                received.add(instances);
+            }
+        });
+
+        ServiceInstance snapshotInstance = received.get(0).get(0);
+        Assert.assertEquals(5, snapshotInstance.getWeight());
+        Assert.assertEquals(1690000000000L, snapshotInstance.getStartTime());
+        Assert.assertEquals(30000L, snapshotInstance.getWarmupMillis());
+    }
+
+    /**
+     * 8. B3：同地址重复注册以最后一次元数据为准（Map 语义）
+     */
+    @Test
+    public void testReRegisterSameAddressReplacesMetadata() {
+        registry.init(Collections.<String, String>emptyMap());
+        String service = "io.github.upowerman.DemoService";
+
+        registry.register(service, new ServiceInstance("127.0.0.1:8080", 1, 0L, 0L));
+        registry.register(service, new ServiceInstance("127.0.0.1:8080", 9, 0L, 0L));
+
+        final List<List<ServiceInstance>> received = new ArrayList<List<ServiceInstance>>();
+        registry.subscribe(service, new ServiceListener() {
+            @Override
+            public void onChange(List<ServiceInstance> instances) {
+                received.add(instances);
+            }
+        });
+
+        Assert.assertEquals(1, received.get(0).size());
+        Assert.assertEquals(9, received.get(0).get(0).getWeight());
+    }
 }

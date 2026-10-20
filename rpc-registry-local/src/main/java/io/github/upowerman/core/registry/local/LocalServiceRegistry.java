@@ -8,10 +8,9 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -36,7 +35,7 @@ public class LocalServiceRegistry implements Registry {
      */
     public static final String DIRECT_ADDRESS = "DIRECT_ADDRESS";
 
-    private final ConcurrentHashMap<String, Set<String>> serviceAddresses = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Map<String, ServiceInstance>> serviceInstances = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, List<ServiceListener>> serviceListeners = new ConcurrentHashMap<>();
     private volatile String directAddress = null;
 
@@ -54,7 +53,7 @@ public class LocalServiceRegistry implements Registry {
 
     @Override
     public void destroy() {
-        serviceAddresses.clear();
+        serviceInstances.clear();
         serviceListeners.clear();
         directAddress = null;
     }
@@ -64,8 +63,10 @@ public class LocalServiceRegistry implements Registry {
         if (service == null || instance == null || instance.getAddress() == null) {
             return;
         }
-        Set<String> addresses = serviceAddresses.computeIfAbsent(service, k -> ConcurrentHashMap.newKeySet());
-        addresses.add(instance.getAddress());
+        Map<String, ServiceInstance> instances = serviceInstances.computeIfAbsent(service,
+                k -> new ConcurrentHashMap<>());
+        // 存完整实例：weight/startTime/warmup 随订阅快照原样到达消费端
+        instances.put(instance.getAddress(), instance);
         notifyListeners(service);
     }
 
@@ -74,9 +75,9 @@ public class LocalServiceRegistry implements Registry {
         if (service == null || instance == null || instance.getAddress() == null) {
             return;
         }
-        Set<String> addresses = serviceAddresses.get(service);
-        if (addresses != null) {
-            addresses.remove(instance.getAddress());
+        Map<String, ServiceInstance> instances = serviceInstances.get(service);
+        if (instances != null) {
+            instances.remove(instance.getAddress());
         }
         notifyListeners(service);
     }
@@ -103,20 +104,16 @@ public class LocalServiceRegistry implements Registry {
     }
 
     private List<ServiceInstance> buildSnapshot(String service) {
-        Set<String> addresses = serviceAddresses.get(service);
-        LinkedHashSet<String> combined = new LinkedHashSet<>();
+        Map<String, ServiceInstance> registered = serviceInstances.get(service);
+        LinkedHashMap<String, ServiceInstance> combined = new LinkedHashMap<>();
         String da = directAddress;
         if (da != null && !da.isEmpty()) {
-            combined.add(da);
+            combined.put(da, new ServiceInstance(da));
         }
-        if (addresses != null) {
-            combined.addAll(addresses);
+        if (registered != null) {
+            combined.putAll(registered);
         }
-        List<ServiceInstance> result = new ArrayList<>(combined.size());
-        for (String addr : combined) {
-            result.add(new ServiceInstance(addr));
-        }
-        return Collections.unmodifiableList(result);
+        return Collections.unmodifiableList(new ArrayList<>(combined.values()));
     }
 
     private void notifyListeners(String service) {

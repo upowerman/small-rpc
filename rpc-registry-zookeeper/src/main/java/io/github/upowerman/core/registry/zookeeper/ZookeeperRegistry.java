@@ -1,6 +1,7 @@
 package io.github.upowerman.core.registry.zookeeper;
 
 import io.github.upowerman.core.directory.ServiceInstance;
+import io.github.upowerman.core.registry.InstancePayloads;
 import io.github.upowerman.core.registry.Registry;
 import io.github.upowerman.core.registry.ServiceListener;
 import org.apache.curator.framework.CuratorFramework;
@@ -135,10 +136,12 @@ public class ZookeeperRegistry implements Registry {
         checkStarted();
         String path = buildInstancePath(service, instance.getAddress());
         try {
+            // 节点 data 携带实例元数据（weight/startTime/warmup）；空 data = 旧格式（等权）
+            byte[] data = InstancePayloads.encode(instance).getBytes(java.nio.charset.StandardCharsets.UTF_8);
             client.create()
                     .creatingParentsIfNeeded()
                     .withMode(CreateMode.EPHEMERAL)
-                    .forPath(path);
+                    .forPath(path, data);
             logger.info("Registered service '{}' instance '{}' to ZooKeeper", service, instance.getAddress());
         } catch (KeeperException.NodeExistsException e) {
             // 节点已存在，幂等处理
@@ -267,7 +270,10 @@ public class ZookeeperRegistry implements Registry {
             String path = cd.getPath();
             int idx = path.lastIndexOf('/');
             String address = idx >= 0 ? path.substring(idx + 1) : path;
-            instances.add(new ServiceInstance(address));
+            // 容错解码：空/旧格式 data 回退等权实例，坏数据不炸整份快照
+            String payload = cd.getData() == null ? null
+                    : new String(cd.getData(), java.nio.charset.StandardCharsets.UTF_8);
+            instances.add(InstancePayloads.decode(address, payload));
         }
         return Collections.unmodifiableList(instances);
     }

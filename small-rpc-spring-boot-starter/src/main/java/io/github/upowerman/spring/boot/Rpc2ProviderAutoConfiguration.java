@@ -83,7 +83,10 @@ public class Rpc2ProviderAutoConfiguration {
                                 SerializerRegistry serializerRegistry, Registry registry,
                                 ProviderRegistrationLifecycle lifecycle) throws Exception {
         int rpc2Port = properties.getProvider().getRpc2Port();
-        RpcServer server = new RpcServer(rpc2Port, serializerRegistry);
+        RpcServer server = new RpcServer(rpc2Port, serializerRegistry,
+                properties.getProvider().getBusinessThreads(),
+                properties.getProvider().getBusinessQueueCapacity(),
+                properties.getProvider().getShutdownDrainMs());
         List<Class<?>> registeredInterfaces = new ArrayList<Class<?>>();
         for (Object serviceBean : applicationContext.getBeansWithAnnotation(RpcService.class).values()) {
             Class<?> serviceInterface = resolveServiceInterface(serviceBean);
@@ -97,7 +100,10 @@ public class Rpc2ProviderAutoConfiguration {
         server.start();
 
         String selfAddress = resolveProviderAddress(properties.getProvider().getAddress(), rpc2Port);
-        ServiceInstance instance = new ServiceInstance(selfAddress);
+        ServiceInstance instance = new ServiceInstance(selfAddress,
+                properties.getProvider().getWeight(),
+                System.currentTimeMillis(),
+                properties.getProvider().getWarmupMs());
         for (Class<?> iface : registeredInterfaces) {
             registry.register(iface.getName(), instance);
             lifecycle.record(iface.getName(), instance);
@@ -154,7 +160,15 @@ public class Rpc2ProviderAutoConfiguration {
         return sb.toString();
     }
 
-    static class ProviderRegistrationLifecycle implements org.springframework.beans.factory.DisposableBean {
+    /**
+     * 注册生命周期（B5）：实现 {@link org.springframework.context.SmartLifecycle}——
+     * {@code stop()} 在 Spring 关闭流程中先于所有单例的 destroy 回调执行，
+     * 保证"先从注册中心摘除流量（unregister），后关闭 RpcServer（排空在途请求）"的正确顺序。
+     * 若用 DisposableBean，销毁按创建逆序进行（lifecycle 先创建 → 后销毁），
+     * 会出现 server 已关、实例仍被消费端寻址的窗口。SIGTERM 未经 Spring 关闭的路径由 JVM
+     * shutdown hook 兜底注销。
+     */
+    static class ProviderRegistrationLifecycle implements org.springframework.context.SmartLifecycle {
         private static final Logger lifecycleLogger = LoggerFactory.getLogger(ProviderRegistrationLifecycle.class);
 
         private static class RegistrationEntry {
@@ -170,6 +184,7 @@ public class Rpc2ProviderAutoConfiguration {
         private final Registry registry;
         private final List<RegistrationEntry> entries = new java.util.concurrent.CopyOnWriteArrayList<>();
         private final Thread shutdownHook;
+        private volatile boolean running;
 
         public ProviderRegistrationLifecycle(final Registry registry) {
             this.registry = registry;
@@ -203,12 +218,23 @@ public class Rpc2ProviderAutoConfiguration {
         }
 
         @Override
-        public void destroy() {
+        public void start() {
+            running = true;
+        }
+
+        @Override
+        public void stop() {
             try {
                 Runtime.getRuntime().removeShutdownHook(shutdownHook);
             } catch (Throwable ignored) {
             }
             unregisterAll();
+            running = false;
+        }
+
+        @Override
+        public boolean isRunning() {
+            return running;
         }
     }
 }

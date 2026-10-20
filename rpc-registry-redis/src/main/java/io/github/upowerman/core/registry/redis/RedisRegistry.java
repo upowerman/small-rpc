@@ -1,6 +1,7 @@
 package io.github.upowerman.core.registry.redis;
 
 import io.github.upowerman.core.directory.ServiceInstance;
+import io.github.upowerman.core.registry.InstancePayloads;
 import io.github.upowerman.core.registry.Registry;
 import io.github.upowerman.core.registry.ServiceListener;
 import org.slf4j.Logger;
@@ -224,6 +225,9 @@ public class RedisRegistry implements Registry {
         String address = instance.getAddress();
         try (Jedis jedis = pool.getResource()) {
             jedis.sadd(key, address);
+            // 实例元数据（weight/startTime/warmup）写并行 Hash：Set 成员保持纯地址，
+            // 心跳键与差量比对逻辑不动；消费端轮询时按地址合并
+            jedis.hset(buildMetaKey(service), address, InstancePayloads.encode(instance));
         } catch (Exception e) {
             throw new IllegalStateException("Failed to register instance to Redis: " + key, e);
         }
@@ -245,6 +249,7 @@ public class RedisRegistry implements Registry {
         String address = instance.getAddress();
         try (Jedis jedis = pool.getResource()) {
             jedis.srem(key, address);
+            jedis.hdel(buildMetaKey(service), address);
             jedis.del(buildHeartbeatKey(service, address));
         } catch (Exception e) {
             throw new IllegalStateException("Failed to unregister instance from Redis: " + key, e);
@@ -324,6 +329,11 @@ public class RedisRegistry implements Registry {
 
     private String buildRegistryKey(String service) {
         return keyPrefix + ":registry:" + service;
+    }
+
+    /** 例：{prefix}:registry-meta:{service} —— address → 实例元数据 payload */
+    private String buildMetaKey(String service) {
+        return keyPrefix + ":registry-meta:" + service;
     }
 
     private Set<String> fetchCurrentMembers(String key) {
@@ -426,6 +436,7 @@ public class RedisRegistry implements Registry {
      * I-2：从成员集筛出"存活"实例——存在 heartbeat 租约键（未过期）才算存活。
      * provider 正常运行时持续续期；被 kill -9/OOM 被动退出后键过期即被剔除，避免僵尸成员永久占坑。
      * EXISTS 异常时降级返回全量（不误伤存活实例，宁可暂容 stale 也不清空缓存——降级优先于精确）。
+     * 实例元数据从并行 meta Hash 合并；Hash 读失败或字段缺失按等权旧格式处理。
      */
     private List<ServiceInstance> filterAlive(String service, String redisKey, Set<String> members) {
         List<String> alive = new ArrayList<>();
@@ -443,11 +454,23 @@ public class RedisRegistry implements Registry {
                     redisKey, t.getMessage());
             alive.addAll(members);
         }
+        Map<String, String> meta = fetchMeta(service);
         List<ServiceInstance> instances = new ArrayList<>(alive.size());
         for (String addr : alive) {
-            instances.add(new ServiceInstance(addr));
+            instances.add(InstancePayloads.decode(addr, meta.get(addr)));
         }
         return instances;
+    }
+
+    /** 读实例元数据 Hash；失败返回空表（按旧格式等权处理，不阻断推送） */
+    private Map<String, String> fetchMeta(String service) {
+        try (Jedis jedis = pool.getResource()) {
+            Map<String, String> meta = jedis.hgetAll(buildMetaKey(service));
+            return meta != null ? meta : Collections.<String, String>emptyMap();
+        } catch (Throwable t) {
+            logger.warn("Failed to fetch instance meta for service '{}': {}", service, t.getMessage());
+            return Collections.emptyMap();
+        }
     }
 
     private static class ServicePollingTask {

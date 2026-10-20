@@ -16,6 +16,9 @@ public class Rpc2Properties {
     /** 负载均衡扩展名（SPI 名）；@RpcReference.loadBalance 未指定时用它，空 = 接口 @Spi 默认扩展 */
     private String loadBalance = "";
 
+    /** 序列化扩展名（SPI 名）：hessian / json；空 = 接口 @Spi 默认扩展（hessian）。服务端按帧 codec 自动识别，两端都可用同一配置切换 */
+    private String serializer = "";
+
     public static class Provider {
         /** 是否启用服务提供端（纯消费端应用请务必设为 false，防端口占用） */
         private boolean enabled = true;
@@ -23,6 +26,16 @@ public class Rpc2Properties {
         private int rpc2Port = 7081;
         /** 注册到注册中心的实例地址（host:port），空则自动探测本机 IP */
         private String address = "";
+        /** 实例静态权重：加权负载均衡（weightedrandom）按权重比例分流量；1 = 等权 */
+        private int weight = 1;
+        /** 预热窗口毫秒：&gt;0 时启动后窗口内流量从 0 线性爬坡到满权重；0 = 关闭预热 */
+        private long warmupMs = 0;
+        /** 业务线程池线程数（请求的反序列化与反射执行在此进行，不占 Netty IO 线程） */
+        private int businessThreads = 8;
+        /** 业务线程池有界队列容量；0 = 无界。&gt;0 时打满后由提交线程执行（CallerRuns 背压），不拒绝请求 */
+        private int businessQueueCapacity = 0;
+        /** 优雅停机排空上限（毫秒）：停机时等待在途请求完成的时间；0 = 不等待直接关闭 */
+        private long shutdownDrainMs = 10000;
 
         public boolean isEnabled() { return enabled; }
         public void setEnabled(boolean enabled) { this.enabled = enabled; }
@@ -30,14 +43,32 @@ public class Rpc2Properties {
         public void setRpc2Port(int rpc2Port) { this.rpc2Port = rpc2Port; }
         public String getAddress() { return address; }
         public void setAddress(String address) { this.address = address; }
+        public int getWeight() { return weight; }
+        public void setWeight(int weight) { this.weight = weight; }
+        public long getWarmupMs() { return warmupMs; }
+        public void setWarmupMs(long warmupMs) { this.warmupMs = warmupMs; }
+        public int getBusinessThreads() { return businessThreads; }
+        public void setBusinessThreads(int businessThreads) { this.businessThreads = businessThreads; }
+        public int getBusinessQueueCapacity() { return businessQueueCapacity; }
+        public void setBusinessQueueCapacity(int businessQueueCapacity) { this.businessQueueCapacity = businessQueueCapacity; }
+        public long getShutdownDrainMs() { return shutdownDrainMs; }
+        public void setShutdownDrainMs(long shutdownDrainMs) { this.shutdownDrainMs = shutdownDrainMs; }
     }
 
     public static class Consumer {
         /** 是否启用服务消费端（纯提供端应用建议设为 false，防无用装配） */
         private boolean enabled = true;
+        /** 全局默认单次调用超时毫秒；@RpcReference.timeout 未设置（-1）时生效 */
+        private long timeoutMs = 3000;
+        /** 全局默认失败重试次数（额外尝试数，0 = 不重试）；@RpcReference.retries 未设置（-1）时生效 */
+        private int retries = 1;
 
         public boolean isEnabled() { return enabled; }
         public void setEnabled(boolean enabled) { this.enabled = enabled; }
+        public long getTimeoutMs() { return timeoutMs; }
+        public void setTimeoutMs(long timeoutMs) { this.timeoutMs = timeoutMs; }
+        public int getRetries() { return retries; }
+        public void setRetries(int retries) { this.retries = retries; }
     }
 
     public static class Registry {
@@ -188,4 +219,6 @@ public class Rpc2Properties {
     public void setRegistry(Registry registry) { this.registry = registry; }
     public String getLoadBalance() { return loadBalance; }
     public void setLoadBalance(String loadBalance) { this.loadBalance = loadBalance; }
+    public String getSerializer() { return serializer; }
+    public void setSerializer(String serializer) { this.serializer = serializer; }
 }

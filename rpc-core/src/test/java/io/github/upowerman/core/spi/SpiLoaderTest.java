@@ -3,6 +3,7 @@ package io.github.upowerman.core.spi;
 import io.github.upowerman.core.loadbalance.LoadBalancer;
 import io.github.upowerman.core.loadbalance.RandomLoadBalancer;
 import io.github.upowerman.core.loadbalance.RoundRobinLoadBalancer;
+import io.github.upowerman.core.loadbalance.WeightedRandomLoadBalancer;
 import io.github.upowerman.core.serialize.Serializer;
 import io.github.upowerman.core.spi.fixture.BoomSpi;
 import io.github.upowerman.core.spi.fixture.BoomSpiGood;
@@ -80,9 +81,11 @@ public class SpiLoaderTest {
     @Test
     public void productionLoadBalancerRegistrationResolves() {
         SpiLoader<LoadBalancer> loader = SpiLoader.of(LoadBalancer.class);
-        assertEquals(Arrays.asList("random", "roundrobin"), new ArrayList<String>(loader.getSupportedExtensions()));
+        assertEquals(Arrays.asList("random", "roundrobin", "weightedrandom"),
+                new ArrayList<String>(loader.getSupportedExtensions()));
         assertTrue(loader.getDefaultExtension() instanceof RandomLoadBalancer);
         assertTrue(loader.getExtension("roundrobin") instanceof RoundRobinLoadBalancer);
+        assertTrue(loader.getExtension("weightedrandom") instanceof WeightedRandomLoadBalancer);
     }
 
     @Test

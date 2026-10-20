@@ -131,6 +131,9 @@ public class ServerHandler extends SimpleChannelInboundHandler<Frame> {
         try {
             bytes = serializer == null ? new byte[0] : serializer.serialize(body);
         } catch (Exception e) {
+            // 降级回帧对调用方仍可结算，但根因必须留痕——静默吞掉等于让对端每次面对空 body 猜谜
+            logger.warn("serialize response body failed (requestId={}): {}",
+                    frame.requestId(), e.toString());
             writeDegradedFrame(channel, frame);
             return;
         }
