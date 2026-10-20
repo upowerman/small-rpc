@@ -24,8 +24,9 @@ on:
         type: boolean
         default: false
 
+# contents: write —— 发布成功后在仓库 Releases 页创建 Release 条目
 permissions:
-  contents: read
+  contents: write
 
 # 发布串行化：两个 tag 并发会撞 Central 的版本占用，直接失败
 concurrency:
@@ -113,6 +114,26 @@ jobs:
         env:
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: mvn -B -Prelease deploy -Dgpg.passphrase="$GPG_PASSPHRASE"
+
+      # Maven Central 发布成功后，在仓库 Releases 页同步创建 Release 条目。
+      # 仅 tag push 触发（workflow on:push 只监听 tags，故 push 蕴含 tag）；
+      # body 复用 annotated tag 的 message——发布说明在打 tag 时一次写好，单一真值。
+      # 幂等：Release 已存在（如手动建过 / dispatch 重发布）时跳过，不把 job 标红。
+      - name: Create GitHub Release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "Release $GITHUB_REF_NAME 已存在，跳过创建"
+            exit 0
+          fi
+          NOTES="$(git tag -l --format='%(contents)' "$GITHUB_REF_NAME")"
+          if [ -n "$NOTES" ]; then
+            gh release create "$GITHUB_REF_NAME" --title "small-rpc $GITHUB_REF_NAME" --notes "$NOTES"
+          else
+            gh release create "$GITHUB_REF_NAME" --title "small-rpc $GITHUB_REF_NAME" --generate-notes
+          fi
 
       # 上传失败时把待发布的 bundle 留档，便于定位 Central 侧校验问题
       - name: Upload bundle for diagnosis
