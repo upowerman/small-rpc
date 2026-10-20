@@ -2,6 +2,7 @@ package io.github.upowerman.core.invoker;
 
 import io.github.upowerman.core.RpcConstants;
 import io.github.upowerman.core.invocation.Invocation;
+import io.github.upowerman.core.metrics.RpcMetrics;
 import io.github.upowerman.core.result.DefaultResult;
 import io.github.upowerman.core.result.Result;
 import io.github.upowerman.core.result.Status;
@@ -41,7 +42,15 @@ public class RemoteInvoker implements Invoker {
                     new RpcException("invocation missing attachment: " + RpcConstants.ATTACH_ADDRESS)));
         }
         try {
-            return transport.connect(Endpoint.of(address.toString())).request(invocation);
+            return transport.connect(Endpoint.of(address.toString())).request(invocation)
+                    .whenComplete((result, error) -> {
+                        // 传输层 CLIENT_BUSY 拒绝按原因归因（MetricsFilter 只能记为普通失败）
+                        if (result != null && result.status() == Status.CLIENT_BUSY) {
+                            RpcMetrics.getInstance().recordRejection(
+                                    invocation.serviceName() + "#" + invocation.methodName(),
+                                    "client-busy");
+                        }
+                    });
         } catch (Exception e) {
             return CompletableFuture.completedFuture(DefaultResult.failure(Status.NETWORK_ERROR, e));
         }

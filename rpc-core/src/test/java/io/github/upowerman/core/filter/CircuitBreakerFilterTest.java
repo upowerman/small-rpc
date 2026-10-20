@@ -117,6 +117,43 @@ public class CircuitBreakerFilterTest {
         assertEquals(Long.valueOf(1L), findStat(stats, key).rejections().get("circuit-open"));
     }
 
+    @Test
+    public void circuitOpenReturnsFallbackValue() {              // spec §11.5：Fallback+熔断组合
+        FlakyEchoService impl = new FlakyEchoService();
+        InMemoryTransport transport = new InMemoryTransport();
+        transport.register("127.0.0.1:7080", new ReflectiveInvoker(EchoService.class, impl));
+        CachingServiceDirectory directory = new CachingServiceDirectory(stubRegistry("127.0.0.1:7080"));
+        directory.subscribe(EchoService.class.getName());
+        FailoverClusterInvoker cluster = new FailoverClusterInvoker(
+                directory, new RandomLoadBalancer(),
+                new RemoteInvoker(transport, EchoService.class), 0, 1000);
+        DefaultCircuitBreaker breaker = new DefaultCircuitBreaker(new java.util.function.LongSupplier() {
+            @Override public long getAsLong() { return clock.get(); }
+        });
+        CircuitBreakerRule rule = new CircuitBreakerRule(0.5, 0, 0, 3, 10_000, 1000, 1);
+        // 链序与生产装配一致：Fallback 在 CircuitBreaker 外层
+        EchoService echo = new RpcProxyFactory<EchoService>(EchoService.class,
+                Arrays.<Filter>asList(new TraceFilter(), new MetricsFilter(),
+                        new FallbackFilter(new EchoFallback()),
+                        new CircuitBreakerFilter(breaker, rule, 1000)),
+                cluster).getProxy();
+
+        impl.broken = true;
+        for (int i = 0; i < 3; i++) {
+            assertEquals("fallback:" + i, echo.echo(String.valueOf(i)));   // 底层失败被兜底
+        }
+        impl.broken = false;
+        // 熔断已打开：快速失败同样被 fallback 接住，业务拿到兜底值而非异常
+        assertEquals("fallback:open", echo.echo("open"));
+    }
+
+    public static class EchoFallback implements EchoService {
+        @Override
+        public String echo(String msg) {
+            return "fallback:" + msg;
+        }
+    }
+
     private static RpcMetrics.Stat findStat(List<RpcMetrics.Stat> stats, String key) {
         for (RpcMetrics.Stat s : stats) {
             if (s.key().equals(key)) {

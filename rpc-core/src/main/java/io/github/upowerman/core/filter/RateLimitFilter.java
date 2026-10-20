@@ -50,6 +50,12 @@ public class RateLimitFilter implements Filter {
             return CompletableFuture.completedFuture(DefaultResult.failure(Status.RATE_LIMITED,
                     new RpcException("concurrent limit reached for " + resource)));
         }
-        return next.invoke(invocation).whenComplete((result, error) -> semaphore.release());
+        try {
+            return next.invoke(invocation).whenComplete((result, error) -> semaphore.release());
+        } catch (Throwable t) {
+            // 下游同步抛出时 future 不存在，whenComplete 挂不上——此处不释放即永久泄漏
+            semaphore.release();
+            throw t;
+        }
     }
 }

@@ -114,6 +114,25 @@ public class RateLimitFilterTest {
     }
 
     @Test
+    public void permitReleasedOnSynchronousDownstreamThrow() {   // 评审 Important #2
+        RateLimitFilter filter = new RateLimitFilter(null, null, 1);
+        Invoker exploding = new Invoker() {
+            @Override public Class<?> interfaceClass() { return Object.class; }
+            @Override public CompletableFuture<Result> invoke(Invocation inv) {
+                throw new IllegalStateException("sync boom before future");
+            }
+        };
+        try {
+            filter.invoke(exploding, invocation("m"));
+            org.junit.Assert.fail("同步异常应原样上抛");
+        } catch (IllegalStateException expected) {
+            // 预期：异常不被吞
+        }
+        assertEquals("同步抛出路径也要释放许可", Status.SUCCESS,
+                filter.invoke(passthrough(0), invocation("m")).join().status());
+    }
+
+    @Test
     public void rejectsRecordedInMetrics() {
         RpcMetrics.getInstance().reset();
         AtomicLong now = new AtomicLong(0);

@@ -464,7 +464,7 @@ The example client is configured with `rate-limit.qps=50` and `max-in-flight=100
 | `small-rpc.consumer.governance.circuit-breaker.half-open-probes` | `1` | Integer | HALF_OPEN probe permits |
 | `small-rpc.consumer.governance.rate-limit.enabled` | `false` | Boolean | Rate limit switch (opt-in) |
 | `small-rpc.consumer.governance.rate-limit.qps` | `0` | Integer | Per-resource token bucket rate (per second); 0 = unlimited |
-| `small-rpc.consumer.governance.rate-limit.max-concurrent` | `0` | Integer | Per-resource concurrency cap (semaphore); 0 = unlimited |
+| `small-rpc.consumer.governance.rate-limit.max-concurrent` | `0` | Integer | Per-resource concurrency cap (semaphore); 0 = unlimited. Scope is **a single @RpcReference proxy** (independent per proxy) — multiple fields of the same interface multiply the effective cap |
 
 ---
 

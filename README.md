@@ -502,7 +502,7 @@ public class HelloController {
 | `small-rpc.consumer.governance.circuit-breaker.half-open-probes` | `1` | Integer | 半开探测名额 |
 | `small-rpc.consumer.governance.rate-limit.enabled` | `false` | Boolean | 限流开关（opt-in） |
 | `small-rpc.consumer.governance.rate-limit.qps` | `0` | Integer | 每资源令牌桶速率（每秒）；0 = 不限速 |
-| `small-rpc.consumer.governance.rate-limit.max-concurrent` | `0` | Integer | 每资源并发上限（信号量）；0 = 不限并发 |
+| `small-rpc.consumer.governance.rate-limit.max-concurrent` | `0` | Integer | 每资源并发上限（信号量）；0 = 不限并发。注意：作用域为**单个 @RpcReference 引用**（每个代理独立计数），同一接口注入多个字段时上限按字段数放大 |
 
 ---
 
